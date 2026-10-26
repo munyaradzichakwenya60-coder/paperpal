@@ -24,13 +24,14 @@ const question = z.object({
   number: z.string().min(1),
   text: z.string().min(5),
   marks: z.number().int().min(1),
-  options: z.array(z.string().min(1)).length(4).optional(),
+  answerLines: z.number().int().min(0).max(8).optional().nullable(),
+  options: z.array(z.string().min(1)).length(4).optional().nullable(),
   markingScheme: z.array(markingPoint).min(1),
 });
 
 const section = z.object({
   title: z.string().min(1),
-  instructions: z.string().optional(),
+  instructions: z.string().optional().nullable(),
   questions: z.array(question).min(1),
 });
 

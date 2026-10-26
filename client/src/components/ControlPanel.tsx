@@ -1,10 +1,12 @@
 import { useState } from "react";
-import type { Difficulty, GenerateRequest, Level, PaperType, Syllabus } from "../types";
+import type { Difficulty, GenerateRequest, Level, PaperType, Profile, Syllabus } from "../types";
 
 type Props = {
   syllabus: Syllabus;
   loading: boolean;
   onGenerate: (req: GenerateRequest) => void;
+  profile: Profile | null;
+  onEditProfile: () => void;
 };
 
 const levels: Level[] = ["O-Level", "A-Level"];
@@ -19,7 +21,7 @@ const paperTypes: { value: PaperType; label: string }[] = [
   { value: "mixed", label: "Mixed (multiple choice and structured)" },
 ];
 
-export function ControlPanel({ syllabus, loading, onGenerate }: Props) {
+export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditProfile }: Props) {
   const [level, setLevel] = useState<Level>("O-Level");
   const [subject, setSubject] = useState(syllabus.subjects[0].name);
   const [topics, setTopics] = useState<string[]>([]);
@@ -27,6 +29,9 @@ export function ControlPanel({ syllabus, loading, onGenerate }: Props) {
   const [difficulty, setDifficulty] = useState<Difficulty>("balanced");
   const [totalMarks, setTotalMarks] = useState(40);
   const [durationMinutes, setDurationMinutes] = useState(60);
+
+  // Only show subjects that have topics for the selected level
+  const subjectsForLevel = syllabus.subjects.filter((s) => s.levels[level].length > 0);
 
   const available = syllabus.subjects.find((s) => s.name === subject)?.levels[level] ?? [];
   const marksOk = Number.isInteger(totalMarks) && totalMarks >= 10 && totalMarks <= 100;
@@ -37,6 +42,12 @@ export function ControlPanel({ syllabus, loading, onGenerate }: Props) {
   function changeLevel(next: Level) {
     setLevel(next);
     setTopics([]);
+    // If current subject has no topics at the new level, switch to first available subject
+    const current = syllabus.subjects.find((s) => s.name === subject);
+    if (!current || current.levels[next].length === 0) {
+      const first = syllabus.subjects.find((s) => s.levels[next].length > 0);
+      if (first) setSubject(first.name);
+    }
   }
 
   function toggleTopic(topic: string) {
@@ -55,6 +66,14 @@ export function ControlPanel({ syllabus, loading, onGenerate }: Props) {
     >
       <h1 className="brand">PaperPal</h1>
       <p className="tagline">Build a syllabus-aligned test and its marking scheme.</p>
+
+      {/* Profile chip */}
+      {profile && (
+        <button type="button" className="profile-chip" onClick={onEditProfile}>
+          <span className="profile-school">{profile.schoolName}</span>
+          <span className="profile-role">{profile.teacherName} · {profile.role}</span>
+        </button>
+      )}
 
       <fieldset>
         <legend>Level</legend>
@@ -77,7 +96,7 @@ export function ControlPanel({ syllabus, loading, onGenerate }: Props) {
             setTopics([]);
           }}
         >
-          {syllabus.subjects.map((s) => (
+          {subjectsForLevel.map((s) => (
             <option key={s.name}>{s.name}</option>
           ))}
         </select>

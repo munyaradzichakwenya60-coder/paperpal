@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { generatePaper, getHealth, getSyllabus } from "./api";
 import { ControlPanel } from "./components/ControlPanel";
 import { PaperSheet } from "./components/PaperSheet";
+import { ProfileModal } from "./components/ProfileModal";
+import { useProfile } from "./hooks/useProfile";
 import type { GenerateRequest, GeneratedPaper, Syllabus } from "./types";
 
 export default function App() {
@@ -11,6 +13,17 @@ export default function App() {
   const [view, setView] = useState<"paper" | "scheme">("paper");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  const { profile, loaded, saveProfile } = useProfile();
+
+  // On phones the form sits above the paper, so bring the new paper into view.
+  useEffect(() => {
+    if (!paper || !window.matchMedia("(max-width: 900px)").matches) return;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    toolbarRef.current?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  }, [paper]);
 
   useEffect(() => {
     Promise.all([getSyllabus(), getHealth()])
@@ -34,14 +47,35 @@ export default function App() {
     }
   }
 
+  // Show setup modal on first visit once the profile check has loaded
+  const showSetup = loaded && !profile && !editingProfile;
+
   return (
     <div className="app">
+      {/* First-time setup or edit modal */}
+      {(showSetup || editingProfile) && (
+        <ProfileModal
+          existing={editingProfile ? profile : null}
+          onSave={(p) => {
+            saveProfile(p);
+            setEditingProfile(false);
+          }}
+          onClose={editingProfile ? () => setEditingProfile(false) : undefined}
+        />
+      )}
+
       {syllabus ? (
-        <ControlPanel syllabus={syllabus} loading={loading} onGenerate={handleGenerate} />
+        <ControlPanel
+          syllabus={syllabus}
+          loading={loading}
+          onGenerate={handleGenerate}
+          profile={profile}
+          onEditProfile={() => setEditingProfile(true)}
+        />
       ) : (
         <div className="panel">
           <h1 className="brand">PaperPal</h1>
-          {!error && <p className="tagline">Loading…</p>}
+          {!error && <p className="tagline">Loading...</p>}
         </div>
       )}
 
@@ -59,7 +93,7 @@ export default function App() {
 
         {paper ? (
           <>
-            <div className="toolbar">
+            <div className="toolbar" ref={toolbarRef}>
               <div className="segmented" role="group" aria-label="Document">
                 <button type="button" className={view === "paper" ? "on" : ""} onClick={() => setView("paper")}>
                   Question paper
@@ -71,8 +105,15 @@ export default function App() {
               <button type="button" className="ghost" onClick={() => window.print()}>
                 Print or save as PDF
               </button>
+              <button
+                type="button"
+                className="ghost settings-link"
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              >
+                Change paper settings
+              </button>
             </div>
-            <PaperSheet paper={paper} view={view} />
+            <PaperSheet paper={paper} view={view} profile={profile} />
           </>
         ) : (
           !error && (

@@ -11,6 +11,12 @@ import { syllabus } from "./syllabus.js";
 const app = express();
 app.use(express.json({ limit: "20kb" }));
 
+// Allow same-origin module scripts to load without CORS issues
+app.use((_req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  next();
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, provider: activeProvider() });
 });
@@ -43,5 +49,7 @@ if (fs.existsSync(clientDist)) {
 
 const port = Number(process.env.PORT) || 3001;
 app.listen(port, () => {
-  console.log(`PaperPal server on http://localhost:${port} (AI provider: ${activeProvider()})`);
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+  console.log(`PaperPal server on http://localhost:${port} (AI provider: ${activeProvider()}, model: ${model})`);
 });
+

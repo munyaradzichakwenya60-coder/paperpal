@@ -30,7 +30,7 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: "gemini" | "mock
   };
 }
 
-const MAX_ATTEMPTS = 2;
+const MAX_ATTEMPTS = 3;
 
 export async function generatePaper(req: GenerateRequest): Promise<GeneratedPaper> {
   const provider = activeProvider();
@@ -38,15 +38,27 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
 
   let feedback = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const text = await callGemini(buildPrompt(req, feedback));
+    let text = "";
+    try {
+      text = await callGemini(buildPrompt(req, feedback));
+    } catch (err) {
+      if (attempt === MAX_ATTEMPTS) throw err;
+      feedback = err instanceof Error ? err.message.slice(0, 200) : "API error.";
+      continue;
+    }
+
     try {
       const parsed = paperSchema.parse(JSON.parse(stripFences(text)));
       const problems = validatePaper(parsed, req);
       if (problems.length === 0) return withMeta(parsed, req, "gemini");
+      console.error(`[attempt ${attempt}] validation problems:`, problems);
       feedback = problems.join(" ");
     } catch (err) {
-      feedback = err instanceof Error ? `Invalid JSON or wrong shape: ${err.message.slice(0, 400)}` : "Invalid JSON.";
+      const msg = err instanceof Error ? err.message.slice(0, 400) : "Invalid JSON.";
+      console.error(`[attempt ${attempt}] parse/schema error:`, msg);
+      console.error(`[attempt ${attempt}] raw text (first 800):`, text.slice(0, 800));
+      feedback = `Invalid JSON or wrong shape: ${msg}`;
     }
   }
-  throw new GenerationError("The AI could not produce a valid paper after two tries. Try again, or reduce the number of topics.");
+  throw new GenerationError("The AI could not produce a valid paper after three tries. Try again, or reduce the number of topics.");
 }

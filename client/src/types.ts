@@ -2,6 +2,12 @@ export type Level = "O-Level" | "A-Level";
 export type PaperType = "structured" | "multiple-choice" | "mixed";
 export type Difficulty = "easier" | "balanced" | "harder";
 
+export type Profile = {
+  schoolName: string;
+  teacherName: string;
+  role: "Teacher" | "Head of Department" | "Examiner";
+};
+
 export type Syllabus = {
   subjects: { name: string; levels: Record<Level, string[]> }[];
 };
@@ -21,6 +27,7 @@ export type Question = {
   number: string;
   text: string;
   marks: number;
+  answerLines?: number;
   options?: string[];
   markingScheme: MarkingPoint[];
 };
