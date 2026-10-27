@@ -75,4 +75,23 @@ describe("generatePaper with the Gemini provider", () => {
 
     await assert.rejects(() => generatePaper(req), /could not produce a valid paper/);
   });
+
+  it("does not retry when the AI service rejects the key", async () => {
+    globalThis.fetch = (async () => {
+      calls++;
+      return new Response("", { status: 403 });
+    }) as typeof fetch;
+
+    await assert.rejects(() => generatePaper(req), /rejected the request/);
+    assert.equal(calls, 1);
+  });
+
+  it("retries a temporary AI service error", async () => {
+    const good = mockPaper(req);
+    globalThis.fetch = (async () => (calls++ === 0 ? new Response("", { status: 503 }) : reply(good))) as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(calls, 2);
+    assert.equal(paper.meta.provider, "gemini");
+  });
 });

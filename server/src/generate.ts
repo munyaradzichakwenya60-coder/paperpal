@@ -31,19 +31,27 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: "gemini" | "mock
 }
 
 const MAX_ATTEMPTS = 3;
+// Serverless functions have a hard time limit, so stop retrying before it is reached.
+const TIME_BUDGET_MS = 55_000;
+const MIN_ATTEMPT_MS = 8_000;
 
 export async function generatePaper(req: GenerateRequest): Promise<GeneratedPaper> {
   const provider = activeProvider();
   if (provider === "mock") return withMeta(mockPaper(req), req, "mock");
 
+  const deadline = Date.now() + TIME_BUDGET_MS;
   let feedback = "";
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const remaining = deadline - Date.now();
+    if (remaining < MIN_ATTEMPT_MS) break;
+
     let text = "";
     try {
-      text = await callGemini(buildPrompt(req, feedback));
+      text = await callGemini(buildPrompt(req, feedback), Math.min(40_000, remaining));
     } catch (err) {
-      if (attempt === MAX_ATTEMPTS) throw err;
-      feedback = err instanceof Error ? err.message.slice(0, 200) : "API error.";
+      // A bad key or model name will not fix itself, so only temporary errors are retried.
+      if (!(err instanceof GenerationError) || !err.retryable || attempt === MAX_ATTEMPTS) throw err;
       continue;
     }
 
@@ -55,10 +63,9 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
       feedback = problems.join(" ");
     } catch (err) {
       const msg = err instanceof Error ? err.message.slice(0, 400) : "Invalid JSON.";
-      console.error(`[attempt ${attempt}] parse/schema error:`, msg);
-      console.error(`[attempt ${attempt}] raw text (first 800):`, text.slice(0, 800));
+      console.error(`[attempt ${attempt}] parse or schema error:`, msg);
       feedback = `Invalid JSON or wrong shape: ${msg}`;
     }
   }
-  throw new GenerationError("The AI could not produce a valid paper after three tries. Try again, or reduce the number of topics.");
+  throw new GenerationError("The AI could not produce a valid paper in time. Try again, or reduce the number of topics.", true);
 }

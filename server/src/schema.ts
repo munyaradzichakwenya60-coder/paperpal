@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { syllabus } from "./syllabus.js";
 
 export const levels = ["O-Level", "A-Level"] as const;
 export const paperTypes = ["structured", "multiple-choice", "mixed"] as const;
@@ -12,6 +13,22 @@ export const generateRequestSchema = z.object({
   difficulty: z.enum(difficulties),
   totalMarks: z.number().int().min(10).max(100),
   durationMinutes: z.number().int().min(15).max(240),
+}).superRefine((req, ctx) => {
+  // Subjects and topics go into the AI prompt, so only values from the syllabus are accepted.
+  const subject = syllabus.subjects.find((s) => s.name === req.subject);
+  if (!subject) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["subject"], message: "Unknown subject." });
+    return;
+  }
+  const allowed = new Set(subject.levels[req.level]);
+  req.topics.forEach((topic, i) => {
+    if (!allowed.has(topic)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["topics", i], message: `Unknown topic: ${topic}` });
+    }
+  });
+  if (new Set(req.topics).size !== req.topics.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["topics"], message: "Topics must not repeat." });
+  }
 });
 export type GenerateRequest = z.infer<typeof generateRequestSchema>;
 
