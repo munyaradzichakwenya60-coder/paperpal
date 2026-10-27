@@ -31,7 +31,7 @@ export default function App() {
         setSyllabus(s);
         setProvider(h.provider);
       })
-      .catch(() => setError("PaperPal can't reach its server. Start the server, then reload this page."));
+      .catch(() => setError("PaperPal can't reach its server. Check your internet connection, then reload the page."));
   }, []);
 
   async function handleGenerate(req: GenerateRequest) {
@@ -52,7 +52,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* First-time setup or edit modal */}
       {(showSetup || editingProfile) && (
         <ProfileModal
           existing={editingProfile ? profile : null}
@@ -82,7 +81,9 @@ export default function App() {
       <main className="desk">
         {provider === "mock" && (
           <p className="banner">
-            Mock mode: no AI key is set, so papers contain sample text. Add GEMINI_API_KEY in server/.env to use real AI.
+            {import.meta.env.DEV
+              ? "Mock mode: no AI key is set, so papers contain sample text. Add GEMINI_API_KEY in server/.env to use real AI."
+              : "Demo mode: papers contain sample text, not real questions."}
           </p>
         )}
         {error && (

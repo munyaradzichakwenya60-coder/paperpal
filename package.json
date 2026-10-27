@@ -3,13 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "description": "AI question paper and marking scheme generator for Zimbabwean secondary school teachers",
-  "workspaces": ["server", "client"],
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "dev": "concurrently -n server,client -c gray,white \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client && npm run build -w server",
-    "start": "npm run start -w server"
+    "start": "npm run start -w server",
+    "test": "npm test -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

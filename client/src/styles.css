@@ -758,3 +758,39 @@ input[aria-invalid="true"] {
   color: var(--error);
 }
 
+/* Small additions that replace inline styles */
+.sheet-byline {
+  margin: 4px 0 0;
+  font-family: var(--ui);
+  font-size: 0.85rem;
+  color: #555555;
+}
+
+.instructions-heading-spaced {
+  margin-top: 10px;
+}
+
+.modal-form .generate {
+  margin-top: 4px;
+}
+
+.crash {
+  max-width: 460px;
+  margin: 18vh auto 0;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.crash h1 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+
+.crash p {
+  margin: 0 0 20px;
+  color: var(--muted);
+}
+
+.crash .generate {
+  width: 100%;
+}
