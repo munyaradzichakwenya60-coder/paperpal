@@ -25,7 +25,7 @@ export function PaperSheet({ paper, view, profile }: Props) {
           <div className="sheet-school">Marking Scheme</div>
           <h2 className="sheet-title">{paper.title}</h2>
           {profile && (
-            <p style={{ fontFamily: "var(--ui)", fontSize: "0.85rem", margin: "4px 0 0", color: "#555" }}>
+            <p className="sheet-byline">
               {profile.schoolName} · {profile.teacherName}
             </p>
           )}
@@ -118,7 +118,7 @@ export function PaperSheet({ paper, view, profile }: Props) {
               <li key={line}>{line}</li>
             ))}
           </ul>
-          <p className="instructions-heading" style={{ marginTop: "10px" }}>INFORMATION FOR CANDIDATES</p>
+          <p className="instructions-heading instructions-heading-spaced">INFORMATION FOR CANDIDATES</p>
           <ul className="instructions-list">
             <li>The number of marks is given in brackets [ ] at the end of each question or part question.</li>
             <li>This question paper consists of <span className="page-count-blank">____</span> printed pages.</li>
@@ -136,7 +136,7 @@ export function PaperSheet({ paper, view, profile }: Props) {
             <p className="part-note">{section.instructions}</p>
           )}
 
-          <ol className="questions" start={1}>
+          <ol className="questions">
             {section.questions.map((q) => (
               <li key={q.number} className="q">
                 <span className="q-num">{q.number}.</span>

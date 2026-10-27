@@ -78,7 +78,7 @@ export function ProfileModal({ existing, onSave, onClose }: Props) {
 
           {error && <p className="modal-error">{error}</p>}
 
-          <button type="submit" className="generate" style={{ marginTop: "4px" }}>
+          <button type="submit" className="generate">
             {isSetup ? "Get started" : "Save changes"}
           </button>
         </form>
