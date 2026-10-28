@@ -78,14 +78,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) return { error: error.message };
     if (!data.user) return { error: "Sign up failed. Please try again." };
 
-    // Insert the profile row immediately
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      school_name: profile.schoolName,
-      teacher_name: profile.teacherName,
-      role: profile.role,
+    // Use the session access token to insert the profile via our server endpoint.
+    // Direct browser inserts are blocked by RLS until the session is fully established.
+    const token = data.session?.access_token;
+    if (!token) {
+      // Email confirmation is enabled -- user must confirm before the session exists.
+      // Profile will be created on first login after confirmation.
+      return { error: null };
+    }
+
+    const res = await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        school_name: profile.schoolName,
+        teacher_name: profile.teacherName,
+        role: profile.role,
+      }),
     });
-    if (profileError) return { error: profileError.message };
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      return { error: body.error ?? "Failed to save profile." };
+    }
     return { error: null };
   }
 
@@ -95,17 +112,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function updateProfile(profile: Profile) {
     if (state.status !== "authenticated") return { error: "Not signed in." };
-    const { error } = await supabase
-      .from("profiles")
-      .update({
+
+    const res = await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.session.access_token}`,
+      },
+      body: JSON.stringify({
         school_name: profile.schoolName,
         teacher_name: profile.teacherName,
         role: profile.role,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", state.user.id);
-    if (error) return { error: error.message };
-    // Reflect update locally
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as { error?: string };
+      return { error: body.error ?? "Failed to save profile." };
+    }
+    // Reflect update locally without a round-trip
     setState((prev) =>
       prev.status === "authenticated" ? { ...prev, profile } : prev,
     );
