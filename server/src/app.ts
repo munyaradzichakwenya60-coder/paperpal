@@ -34,6 +34,55 @@ app.get("/api/syllabus", (_req, res) => {
 
 // ── Protected endpoints ────────────────────────────────────────────────────────
 
+/**
+ * POST /api/auth/profile
+ * Creates or updates the profile row for the authenticated user.
+ * Uses the service-role key server-side, so RLS is bypassed -- this is safe
+ * because requireAuth already verified the JWT before we get here.
+ */
+app.post("/api/auth/profile", requireAuth, async (req, res) => {
+  const { school_name, teacher_name, role } = req.body as {
+    school_name?: string;
+    teacher_name?: string;
+    role?: string;
+  };
+
+  if (!school_name?.trim() || !teacher_name?.trim() || !role) {
+    res.status(400).json({ error: "school_name, teacher_name and role are required." });
+    return;
+  }
+
+  const validRoles = ["Teacher", "Head of Department", "Examiner"];
+  if (!validRoles.includes(role)) {
+    res.status(400).json({ error: "Invalid role." });
+    return;
+  }
+
+  const db = getDb();
+  if (!db) {
+    res.status(503).json({ error: "Database not configured." });
+    return;
+  }
+
+  const { error } = await db.from("profiles").upsert(
+    {
+      id: req.userId!,
+      school_name: school_name.trim(),
+      teacher_name: teacher_name.trim(),
+      role,
+    },
+    { onConflict: "id" },
+  );
+
+  if (error) {
+    console.error("profile upsert failed:", error.message);
+    res.status(500).json({ error: "Failed to save profile." });
+    return;
+  }
+
+  res.json({ ok: true });
+});
+
 app.post("/api/papers/generate", requireAuth, generateLimiter, async (req, res) => {
   const parsed = generateRequestSchema.safeParse(req.body);
   if (!parsed.success) {
