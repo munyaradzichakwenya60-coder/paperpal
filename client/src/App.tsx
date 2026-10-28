@@ -1,12 +1,18 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { generatePaper, getHealth, getSyllabus } from "./api";
 import { ControlPanel } from "./components/ControlPanel";
 import { PaperSheet } from "./components/PaperSheet";
 import { ProfileModal } from "./components/ProfileModal";
-import { useProfile } from "./hooks/useProfile";
+import { useAuth } from "./context/AuthContext";
 import type { GenerateRequest, GeneratedPaper, Syllabus } from "./types";
 
 export default function App() {
+  const { state, updateProfile, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const profile = state.status === "authenticated" ? state.profile : null;
+
   const [syllabus, setSyllabus] = useState<Syllabus | null>(null);
   const [provider, setProvider] = useState<"gemini" | "mock" | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
@@ -15,8 +21,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-
-  const { profile, loaded, saveProfile } = useProfile();
 
   // On phones the form sits above the paper, so bring the new paper into view.
   useEffect(() => {
@@ -47,19 +51,25 @@ export default function App() {
     }
   }
 
-  // Show setup modal on first visit once the profile check has loaded
-  const showSetup = loaded && !profile && !editingProfile;
+  async function handleProfileSave(p: typeof profile) {
+    if (!p) return;
+    const { error } = await updateProfile(p);
+    if (error) console.error("Profile update failed:", error);
+    setEditingProfile(false);
+  }
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <div className="app">
-      {(showSetup || editingProfile) && (
+      {editingProfile && (
         <ProfileModal
-          existing={editingProfile ? profile : null}
-          onSave={(p) => {
-            saveProfile(p);
-            setEditingProfile(false);
-          }}
-          onClose={editingProfile ? () => setEditingProfile(false) : undefined}
+          existing={profile}
+          onSave={handleProfileSave}
+          onClose={() => setEditingProfile(false)}
         />
       )}
 
@@ -70,11 +80,12 @@ export default function App() {
           onGenerate={handleGenerate}
           profile={profile}
           onEditProfile={() => setEditingProfile(true)}
+          onSignOut={handleSignOut}
         />
       ) : (
         <div className="panel">
           <h1 className="brand">PaperPal</h1>
-          {!error && <p className="tagline">Loading...</p>}
+          {!error && <p className="tagline">Loading…</p>}
         </div>
       )}
 

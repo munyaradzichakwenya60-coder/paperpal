@@ -7,6 +7,7 @@ type Props = {
   onGenerate: (req: GenerateRequest) => void;
   profile: Profile | null;
   onEditProfile: () => void;
+  onSignOut: () => void;
 };
 
 const levels: Level[] = ["O-Level", "A-Level"];
@@ -21,7 +22,7 @@ const paperTypes: { value: PaperType; label: string }[] = [
   { value: "mixed", label: "Mixed (multiple choice and structured)" },
 ];
 
-export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditProfile }: Props) {
+export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditProfile, onSignOut }: Props) {
   const [level, setLevel] = useState<Level>("O-Level");
   const [subject, setSubject] = useState(syllabus.subjects[0].name);
   const [topics, setTopics] = useState<string[]>([]);
@@ -69,10 +70,15 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
 
       {/* Profile chip */}
       {profile && (
-        <button type="button" className="profile-chip" onClick={onEditProfile}>
-          <span className="profile-school">{profile.schoolName}</span>
-          <span className="profile-role">{profile.teacherName} · {profile.role}</span>
-        </button>
+        <div className="profile-row">
+          <button type="button" className="profile-chip" onClick={onEditProfile}>
+            <span className="profile-school">{profile.schoolName}</span>
+            <span className="profile-role">{profile.teacherName} · {profile.role}</span>
+          </button>
+          <button type="button" className="sign-out-btn" onClick={onSignOut} title="Sign out">
+            ⎋
+          </button>
+        </div>
       )}
 
       <fieldset>
