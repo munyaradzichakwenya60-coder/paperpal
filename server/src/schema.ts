@@ -11,7 +11,8 @@ export const generateRequestSchema = z.object({
   topics: z.array(z.string().min(2).max(80)).min(1).max(8),
   paperType: z.enum(paperTypes),
   difficulty: z.enum(difficulties),
-  totalMarks: z.number().int().min(10).max(100),
+  totalMarks: z.number().int().min(10).max(150),
+  questionCount: z.number().int().min(10).max(80).optional(),
   durationMinutes: z.number().int().min(15).max(240),
 }).superRefine((req, ctx) => {
   // Subjects and topics go into the AI prompt, so only values from the syllabus are accepted.

@@ -18,7 +18,17 @@ export type GenerateRequest = {
   topics: string[];
   paperType: PaperType;
   difficulty: Difficulty;
+  /**
+   * For structured: total marks the paper must sum to.
+   * For multiple-choice: equals questionCount (1 mark per question).
+   * For mixed: mcqCount + structuredMarks.
+   */
   totalMarks: number;
+  /**
+   * For multiple-choice and mixed: number of MCQ questions (each worth 1 mark).
+   * Undefined for structured-only papers.
+   */
+  questionCount?: number;
   durationMinutes: number;
 };
 

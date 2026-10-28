@@ -35,6 +35,22 @@ const difficultyGuide = {
 } as const;
 
 export function buildPrompt(req: GenerateRequest, feedback = ""): string {
+  // Build the mark/question count instruction based on paper type
+  let markInstruction: string;
+  if (req.paperType === "multiple-choice") {
+    markInstruction =
+      `Number of questions: exactly ${req.questionCount ?? req.totalMarks}. ` +
+      `Each question is worth exactly 1 mark. Total marks: ${req.totalMarks}.`;
+  } else if (req.paperType === "mixed" && req.questionCount) {
+    const structuredMarks = req.totalMarks - req.questionCount;
+    markInstruction =
+      `SECTION A: exactly ${req.questionCount} multiple-choice questions, each worth 1 mark (${req.questionCount} marks total). ` +
+      `SECTION B: structured questions totalling exactly ${structuredMarks} marks. ` +
+      `Grand total: exactly ${req.totalMarks} marks.`;
+  } else {
+    markInstruction = `Total marks: exactly ${req.totalMarks}. Distribute across questions as appropriate for the topic.`;
+  }
+
   const lines = [
     `You are an experienced Zimbabwean secondary school ${req.subject} teacher who writes ZIMSEC-style examination papers.`,
     `Write one complete ${req.level} ${req.subject} examination paper with a full marking scheme.`,
@@ -42,7 +58,7 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     `Topics to cover: ${req.topics.join("; ")}.`,
     `Paper type: ${typeGuide[req.paperType]}`,
     `Difficulty: ${difficultyGuide[req.difficulty]}`,
-    `Total marks: exactly ${req.totalMarks}.`,
+    markInstruction,
     `Time allowed: ${req.durationMinutes} minutes (allow about 1–1.5 minutes per mark for structured questions).`,
     "",
     "FORMATTING RULES — follow exactly:",
@@ -60,6 +76,7 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     "MARK ALLOCATION RULES:",
     "- Each question's marks field must equal the sum of its markingScheme marks.",
     "- The marks of all top-level questions must add up to exactly the total marks.",
+    "- For MCQ questions, marks must be exactly 1 each. No exceptions.",
     "- For structured questions, split marks across parts so no single part exceeds 5 marks unless the question truly demands it.",
     "- For the marking scheme: use the format 'M1 for [method]', 'A1 for [answer]', 'B1 for [independent fact]'. State alternative accepted methods.",
     "",

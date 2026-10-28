@@ -19,7 +19,7 @@ const difficulties: { value: Difficulty; label: string }[] = [
 const paperTypes: { value: PaperType; label: string }[] = [
   { value: "structured", label: "Structured questions" },
   { value: "multiple-choice", label: "Multiple choice" },
-  { value: "mixed", label: "Mixed (multiple choice and structured)" },
+  { value: "mixed", label: "Mixed (MCQ + structured)" },
 ];
 
 export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditProfile, onSignOut }: Props) {
@@ -28,14 +28,36 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
   const [topics, setTopics] = useState<string[]>([]);
   const [paperType, setPaperType] = useState<PaperType>("structured");
   const [difficulty, setDifficulty] = useState<Difficulty>("balanced");
+
+  // Structured: user sets total marks directly
   const [totalMarks, setTotalMarks] = useState(40);
+  // MCQ / mixed: user sets question count (each = 1 mark)
+  const [questionCount, setQuestionCount] = useState(40);
+  // Mixed only: user also sets structured marks
+  const [structuredMarks, setStructuredMarks] = useState(20);
+
   const [durationMinutes, setDurationMinutes] = useState(60);
 
   // Only show subjects that have topics for the selected level
   const subjectsForLevel = syllabus.subjects.filter((s) => s.levels[level].length > 0);
-
   const available = syllabus.subjects.find((s) => s.name === subject)?.levels[level] ?? [];
-  const marksOk = Number.isInteger(totalMarks) && totalMarks >= 10 && totalMarks <= 100;
+
+  // Derived total marks based on paper type
+  const derivedTotal =
+    paperType === "multiple-choice"
+      ? questionCount
+      : paperType === "mixed"
+        ? questionCount + structuredMarks
+        : totalMarks;
+
+  // Validation
+  const marksOk =
+    paperType === "structured"
+      ? Number.isInteger(totalMarks) && totalMarks >= 10 && totalMarks <= 100
+      : paperType === "multiple-choice"
+        ? Number.isInteger(questionCount) && questionCount >= 10 && questionCount <= 80
+        : Number.isInteger(questionCount) && questionCount >= 10 && questionCount <= 60 &&
+          Number.isInteger(structuredMarks) && structuredMarks >= 10 && structuredMarks <= 80;
   const timeOk = Number.isInteger(durationMinutes) && durationMinutes >= 15 && durationMinutes <= 240;
   const topicsOk = topics.length >= 1 && topics.length <= 8;
   const canSubmit = marksOk && timeOk && topicsOk && !loading;
@@ -43,7 +65,6 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
   function changeLevel(next: Level) {
     setLevel(next);
     setTopics([]);
-    // If current subject has no topics at the new level, switch to first available subject
     const current = syllabus.subjects.find((s) => s.name === subject);
     if (!current || current.levels[next].length === 0) {
       const first = syllabus.subjects.find((s) => s.levels[next].length > 0);
@@ -57,14 +78,25 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
     );
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canSubmit) return;
+
+    const req: GenerateRequest = {
+      level,
+      subject,
+      topics,
+      paperType,
+      difficulty,
+      totalMarks: derivedTotal,
+      questionCount: paperType !== "structured" ? questionCount : undefined,
+      durationMinutes,
+    };
+    onGenerate(req);
+  }
+
   return (
-    <form
-      className="panel"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (canSubmit) onGenerate({ level, subject, topics, paperType, difficulty, totalMarks, durationMinutes });
-      }}
-    >
+    <form className="panel" onSubmit={handleSubmit}>
       <h1 className="brand">PaperPal</h1>
       <p className="tagline">Build a syllabus-aligned test and its marking scheme.</p>
 
@@ -95,13 +127,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
 
       <label className="field">
         <span>Subject</span>
-        <select
-          value={subject}
-          onChange={(e) => {
-            setSubject(e.target.value);
-            setTopics([]);
-          }}
-        >
+        <select value={subject} onChange={(e) => { setSubject(e.target.value); setTopics([]); }}>
           {subjectsForLevel.map((s) => (
             <option key={s.name}>{s.name}</option>
           ))}
@@ -134,9 +160,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
         <span>Paper type</span>
         <select value={paperType} onChange={(e) => setPaperType(e.target.value as PaperType)}>
           {paperTypes.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
+            <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
       </label>
@@ -146,44 +170,102 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
         <div className="segmented">
           {difficulties.map((d) => (
             <label key={d.value} className={difficulty === d.value ? "on" : ""}>
-              <input
-                type="radio"
-                name="difficulty"
-                checked={difficulty === d.value}
-                onChange={() => setDifficulty(d.value)}
-              />
+              <input type="radio" name="difficulty" checked={difficulty === d.value} onChange={() => setDifficulty(d.value)} />
               {d.label}
             </label>
           ))}
         </div>
       </fieldset>
 
-      <div className="row">
-        <label className="field">
-          <span>Total marks</span>
-          <input
-            type="number"
-            min={10}
-            max={100}
-            value={totalMarks}
-            onChange={(e) => setTotalMarks(Number(e.target.value))}
-            aria-invalid={!marksOk}
-          />
-          {!marksOk && <em className="hint">Use 10 to 100.</em>}
-        </label>
-        <label className="field">
-          <span>Time (minutes)</span>
-          <input
-            type="number"
-            min={15}
-            max={240}
-            value={durationMinutes}
-            onChange={(e) => setDurationMinutes(Number(e.target.value))}
-            aria-invalid={!timeOk}
-          />
-          {!timeOk && <em className="hint">Use 15 to 240.</em>}
-        </label>
-      </div>
+      {/* Mark / question count inputs -- change based on paper type */}
+      {paperType === "structured" && (
+        <div className="row">
+          <label className="field">
+            <span>Total marks</span>
+            <input
+              type="number" min={10} max={100}
+              value={totalMarks}
+              onChange={(e) => setTotalMarks(Number(e.target.value))}
+              aria-invalid={!marksOk}
+            />
+            {!marksOk && <em className="hint">Use 10 to 100.</em>}
+          </label>
+          <label className="field">
+            <span>Time (minutes)</span>
+            <input
+              type="number" min={15} max={240}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              aria-invalid={!timeOk}
+            />
+            {!timeOk && <em className="hint">Use 15 to 240.</em>}
+          </label>
+        </div>
+      )}
+
+      {paperType === "multiple-choice" && (
+        <div className="row">
+          <label className="field">
+            <span>Number of questions</span>
+            <input
+              type="number" min={10} max={80}
+              value={questionCount}
+              onChange={(e) => setQuestionCount(Number(e.target.value))}
+              aria-invalid={!marksOk}
+            />
+            {!marksOk && <em className="hint">Use 10 to 80.</em>}
+            <em className="hint">1 mark each — total: {questionCount} marks</em>
+          </label>
+          <label className="field">
+            <span>Time (minutes)</span>
+            <input
+              type="number" min={15} max={240}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              aria-invalid={!timeOk}
+            />
+            {!timeOk && <em className="hint">Use 15 to 240.</em>}
+          </label>
+        </div>
+      )}
+
+      {paperType === "mixed" && (
+        <>
+          <div className="row">
+            <label className="field">
+              <span>MCQ questions</span>
+              <input
+                type="number" min={10} max={60}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Number(e.target.value))}
+              />
+              <em className="hint">1 mark each</em>
+            </label>
+            <label className="field">
+              <span>Structured marks</span>
+              <input
+                type="number" min={10} max={80}
+                value={structuredMarks}
+                onChange={(e) => setStructuredMarks(Number(e.target.value))}
+              />
+              <em className="hint">Section B total</em>
+            </label>
+          </div>
+          <p className="note" style={{ marginTop: -8 }}>
+            Total: {derivedTotal} marks ({questionCount} MCQ + {structuredMarks} structured)
+          </p>
+          <label className="field">
+            <span>Time (minutes)</span>
+            <input
+              type="number" min={15} max={240}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              aria-invalid={!timeOk}
+            />
+            {!timeOk && <em className="hint">Use 15 to 240.</em>}
+          </label>
+        </>
+      )}
 
       <button type="submit" className="generate" disabled={!canSubmit}>
         {loading ? "Writing your paper…" : "Generate paper"}
