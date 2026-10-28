@@ -28,6 +28,8 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
   const [topics, setTopics] = useState<string[]>([]);
   const [paperType, setPaperType] = useState<PaperType>("structured");
   const [difficulty, setDifficulty] = useState<Difficulty>("balanced");
+  // Exam title printed on the paper header (e.g. "End of Term 1 Examination")
+  const [paperTitle, setPaperTitle] = useState("");
 
   // Structured: user sets total marks directly
   const [totalMarks, setTotalMarks] = useState(40);
@@ -60,7 +62,8 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
           Number.isInteger(structuredMarks) && structuredMarks >= 10 && structuredMarks <= 80;
   const timeOk = Number.isInteger(durationMinutes) && durationMinutes >= 15 && durationMinutes <= 240;
   const topicsOk = topics.length >= 1 && topics.length <= 8;
-  const canSubmit = marksOk && timeOk && topicsOk && !loading;
+  const titleOk = paperTitle.trim().length >= 3 && paperTitle.trim().length <= 120;
+  const canSubmit = marksOk && timeOk && topicsOk && titleOk && !loading;
 
   function changeLevel(next: Level) {
     setLevel(next);
@@ -91,6 +94,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
       totalMarks: derivedTotal,
       questionCount: paperType !== "structured" ? questionCount : undefined,
       durationMinutes,
+      paperTitle: paperTitle.trim(),
     };
     onGenerate(req);
   }
@@ -132,6 +136,19 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
             <option key={s.name}>{s.name}</option>
           ))}
         </select>
+      </label>
+
+      <label className="field">
+        <span>Paper title</span>
+        <input
+          type="text"
+          value={paperTitle}
+          onChange={(e) => setPaperTitle(e.target.value)}
+          placeholder="e.g. End of Term 1 Examination"
+          maxLength={120}
+          aria-invalid={!titleOk && paperTitle.length > 0}
+        />
+        {!titleOk && <em className="hint">Enter a title for the exam (at least 3 characters).</em>}
       </label>
 
       <fieldset>

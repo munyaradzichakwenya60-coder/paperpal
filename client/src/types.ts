@@ -30,6 +30,8 @@ export type GenerateRequest = {
    */
   questionCount?: number;
   durationMinutes: number;
+  /** Exam title the school prints on the paper (e.g. "End of Term 1 Examination"). */
+  paperTitle?: string;
 };
 
 export type MarkingPoint = { point: string; marks: number };
@@ -54,7 +56,8 @@ export type GeneratedPaper = {
     paperType: PaperType;
     durationMinutes: number;
     totalMarks: number;
-    provider: "gemini" | "mock";
+    paperTitle?: string | null;
+    provider: "gemini" | "openrouter" | "mock";
     generatedAt: string;
   };
 };

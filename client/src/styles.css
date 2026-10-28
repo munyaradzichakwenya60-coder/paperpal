@@ -380,6 +380,12 @@ input[aria-invalid="true"] {
 }
 
 /* Instructions box */
+.sheet-answer-note {
+  font-family: var(--ui);
+  font-size: 0.82rem;
+  margin: 0 0 8px;
+}
+
 .sheet-instructions-box {
   border: 1.5px solid var(--ink);
   padding: 10px 14px;

@@ -14,6 +14,8 @@ export const generateRequestSchema = z.object({
   totalMarks: z.number().int().min(10).max(150),
   questionCount: z.number().int().min(10).max(80).optional(),
   durationMinutes: z.number().int().min(15).max(240),
+  // The exam title the school prints on the paper (e.g. "End of Term 1 Examination").
+  paperTitle: z.string().trim().min(3).max(120).optional(),
 }).superRefine((req, ctx) => {
   // Subjects and topics go into the AI prompt, so only values from the syllabus are accepted.
   const subject = syllabus.subjects.find((s) => s.name === req.subject);
@@ -69,7 +71,8 @@ export type GeneratedPaper = Paper & {
     paperType: GenerateRequest["paperType"];
     durationMinutes: number;
     totalMarks: number;
-    provider: "gemini" | "mock";
+    paperTitle: string | null;
+    provider: "gemini" | "openrouter" | "mock";
     generatedAt: string;
   };
 };

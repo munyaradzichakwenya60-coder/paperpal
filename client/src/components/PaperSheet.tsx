@@ -1,6 +1,36 @@
-import type { GeneratedPaper, Profile } from "../types";
+import type { GeneratedPaper, PaperType, Profile } from "../types";
 
 type Props = { paper: GeneratedPaper; view: "paper" | "scheme"; profile: Profile | null };
+
+const paperTypeLabel: Record<PaperType, string> = {
+  structured: "Structured questions paper",
+  "multiple-choice": "Multiple choice paper",
+  mixed: "Multiple choice and structured questions paper",
+};
+
+// Fixed ZIMSEC-style instructions — the school's own exam header replaces the board's wording,
+// so the AI no longer supplies these.
+const instructionsToCandidates: Record<PaperType, string[]> = {
+  structured: [
+    "Answer ALL questions.",
+    "Write your answers in the spaces provided on the question paper using black or blue pens.",
+    "If working is needed for any question, it must be shown in the space below that question.",
+    "Omission of essential working will result in loss of marks.",
+    "Decimal answers which are not exact should be given correct to three significant figures unless stated otherwise.",
+  ],
+  "multiple-choice": [
+    "Answer ALL questions.",
+    "For each question, circle the letter (A, B, C or D) of the best answer.",
+    "Check that all the pages of this paper are present before you begin.",
+  ],
+  mixed: [
+    "Answer ALL questions in Section A and ALL questions in Section B.",
+    "For Section A, circle the letter (A, B, C or D) of the best answer for each question.",
+    "For Section B, write your answers in the spaces provided on the question paper using black or blue pens.",
+    "If working is needed for any question, it must be shown in the space below that question.",
+    "Omission of essential working will result in loss of marks.",
+  ],
+};
 
 /** Render blank answer lines below a question */
 function AnswerLines({ count }: { count?: number }) {
@@ -83,12 +113,16 @@ export function PaperSheet({ paper, view, profile }: Props) {
       {/* Cover page block */}
       <header className="sheet-head">
         <div className="sheet-school">
-          {profile?.schoolName ?? "________________________ School"}
+          {profile?.schoolName ?? "________________________"}
         </div>
-        <div className="sheet-exam">________________________ Examination</div>
+        <div className="sheet-exam">
+          {meta.paperTitle ?? paper.title ?? "________________________ Examination"}
+        </div>
 
         <h2 className="sheet-title">{meta.subject.toUpperCase()}</h2>
-        <p className="sheet-paper-label">{paper.title}</p>
+        <p className="sheet-paper-label">
+          {meta.level} · {paperTypeLabel[meta.paperType]}
+        </p>
 
         <div className="sheet-time-row">
           <span>Time allowed: <strong>{meta.durationMinutes} minutes</strong></span>
@@ -110,11 +144,13 @@ export function PaperSheet({ paper, view, profile }: Props) {
           </div>
         </div>
 
+        <p className="sheet-answer-note">Candidates answer on the question paper.</p>
+
         {/* Instructions box */}
         <div className="sheet-instructions-box">
           <p className="instructions-heading">INSTRUCTIONS TO CANDIDATES</p>
           <ul className="instructions-list">
-            {paper.instructions.map((line) => (
+            {instructionsToCandidates[meta.paperType].map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
