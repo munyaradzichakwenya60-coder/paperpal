@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { generatePaper } from "./generate.js";
 import { mockPaper } from "./mock.js";
-import { validatePaper, type GenerateRequest } from "./schema.js";
+import { paperSchema, validatePaper, type GenerateRequest } from "./schema.js";
 
 const req: GenerateRequest = {
   level: "O-Level",
@@ -94,4 +94,17 @@ describe("generatePaper with the Gemini provider", () => {
     assert.equal(calls, 2);
     assert.equal(paper.meta.provider, "gemini");
   });
+});
+
+
+it("a null section title from the AI falls back to a default", () => {
+  const parsed = paperSchema.parse({
+    title: "Test paper",
+    instructions: ["Answer all questions."],
+    sections: [{
+      title: null,
+      questions: [{ number: "1", text: "What is 2 + 2?", marks: 1, markingScheme: [{ point: "4", marks: 1 }] }],
+    }],
+  });
+  assert.equal(parsed.sections[0].title, "Questions");
 });
