@@ -47,7 +47,8 @@ const question = z.object({
 });
 
 const section = z.object({
-  title: z.string().min(1),
+  // The AI sometimes returns null or "" for a section title (most often on single-section papers).
+  title: z.string().nullish().transform((t) => t?.trim() || "Questions"),
   instructions: z.string().optional().nullable(),
   questions: z.array(question).min(1),
 });
