@@ -11,7 +11,7 @@ const DEFAULT_MODEL = "gemini-2.5-flash";
 export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<string> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GenerationError("No Gemini API key is configured on the server.");
-  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const model = (process.env.GEMINI_MODEL || DEFAULT_MODEL).replace(/["'\s]/g, "");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   let res: Response;
@@ -21,16 +21,20 @@ export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<st
       headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { responseMimeType: "application/json", temperature: 0.7 },
+        generationConfig: { responseMimeType: "application/json", temperature: 0.7, maxOutputTokens: 32_768 },
       }),
       signal: AbortSignal.timeout(timeoutMs),
     });
-  } catch {
+  } catch (err) {
+    const e = err as Error & { cause?: unknown };
+    console.error("gemini fetch failed:", e.name, e.message, "cause:", String(e.cause));
     throw new GenerationError("Could not reach the AI service. Check the connection and try again.", true);
   }
 
   if (!res.ok) {
     // The status code is safe to share; the body can echo request details, so it is not returned.
+    const body = await res.text().catch(() => "");
+    console.error(`gemini error ${res.status} (${model}):`, body.slice(0, 500));
     const temporary = res.status === 429 || res.status >= 500;
     throw new GenerationError(
       temporary

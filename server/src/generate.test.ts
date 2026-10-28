@@ -96,6 +96,66 @@ describe("generatePaper with the Gemini provider", () => {
   });
 });
 
+describe("generatePaper with the OpenRouter provider", () => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+
+  beforeEach(() => {
+    process.env.AI_PROVIDER = "openrouter";
+    process.env.OPENROUTER_API_KEY = "test-key";
+    calls = 0;
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    delete process.env.AI_PROVIDER;
+    delete process.env.OPENROUTER_API_KEY;
+  });
+
+  const reply = (obj: unknown) =>
+    new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(obj) } }] }));
+
+  it("generates a paper through OpenRouter", async () => {
+    const good = mockPaper(req);
+    globalThis.fetch = (async () => {
+      calls++;
+      return reply(good);
+    }) as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(calls, 1);
+    assert.equal(paper.meta.provider, "openrouter");
+  });
+
+  it("uses the teacher's paper title instead of the AI's", async () => {
+    const good = mockPaper(req);
+    globalThis.fetch = (async () => reply(good)) as typeof fetch;
+
+    const paper = await generatePaper({ ...req, paperTitle: "End of Term 1 Examination" });
+    assert.equal(paper.title, "End of Term 1 Examination");
+    assert.equal(paper.meta.paperTitle, "End of Term 1 Examination");
+  });
+
+  it("falls back to the next provider in the chain", async () => {
+    process.env.AI_PROVIDER = "";
+    delete process.env.AI_PROVIDER;
+    process.env.GEMINI_API_KEY = "gemini-test-key";
+    const good = mockPaper(req);
+    const geminiReply = (obj: unknown) =>
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] }));
+    globalThis.fetch = (async (url: RequestInfo | URL) => {
+      calls++;
+      const isOpenRouter = String(url).includes("openrouter.ai");
+      // OpenRouter rejects the key; Gemini succeeds on the fallback.
+      return isOpenRouter ? new Response("", { status: 403 }) : geminiReply(good);
+    }) as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(calls, 2);
+    assert.equal(paper.meta.provider, "gemini");
+    delete process.env.GEMINI_API_KEY;
+  });
+});
+
 
 it("a null section title from the AI falls back to a default", () => {
   const parsed = paperSchema.parse({
