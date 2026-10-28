@@ -1,6 +1,7 @@
 {
   "name": "paperpal",
   "private": true,
+  "type": "module",
   "version": "0.1.0",
   "description": "AI question paper and marking scheme generator for Zimbabwean secondary school teachers",
   "workspaces": [
