@@ -1,5 +1,5 @@
 export type Level = "O-Level" | "A-Level";
-export type PaperType = "structured" | "multiple-choice" | "mixed";
+export type PaperType = "structured" | "multiple-choice" | "mixed" | "sectioned";
 export type Difficulty = "easier" | "balanced" | "harder";
 
 export type Profile = {
@@ -48,6 +48,14 @@ export type Diagram =
       polygons?: { name?: string | null; points: [number, number][] }[] | null;
     }
   | { type: "bar"; title?: string | null; xLabel?: string | null; yLabel?: string | null; bars: { label: string; value: number }[] }
+  | { type: "table"; headers: string[]; rows: string[][]; rowLabels?: boolean | null }
+  | { type: "annulus"; inner: string; outer: string }
+  | {
+      type: "inequality"; xMin: number; xMax: number; yMin: number; yMax: number;
+      lines: { from: [number, number]; to: [number, number]; dashed?: boolean | null }[];
+      inside: [number, number]; regionLabel?: string | null;
+      points?: { x: number; y: number; label: string }[] | null;
+    }
   | {
       type: "circle"; centre?: string | null; points: string[];
       chords?: [string, string][] | null; radii?: string[] | null; marks?: { at: string; text: string }[] | null;
@@ -56,6 +64,10 @@ export type Diagram =
 export type MarkingPoint = { point: string; marks: number };
 export type Question = {
   number: string;
+  /** Shared intro printed above the first part of a numbered question. */
+  stem?: string | null;
+  /** Shared intro printed above the sub-parts (i), (ii) of a lettered part. */
+  partStem?: string | null;
   text: string;
   marks: number;
   answerLines?: number;

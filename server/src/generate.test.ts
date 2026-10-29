@@ -176,3 +176,41 @@ describe("OpenRouter backup", () => {
     assert.equal(urls.length, 1);
   });
 });
+
+describe("sectioned paper (Sections A and B)", () => {
+  const sreq: GenerateRequest = { ...req, paperType: "sectioned", totalMarks: 100, durationMinutes: 150 };
+
+  it("accepts the layout of a ZIMSEC Paper 2", () => {
+    assert.deepEqual(validatePaper(mockPaper(sreq), sreq), []);
+  });
+
+  it("rejects a Section A that is not 52 marks", () => {
+    const paper = mockPaper(sreq);
+    paper.sections[0].questions[0].marks += 1;
+    paper.sections[0].questions[0].markingScheme[0].marks += 1;
+    const problems = validatePaper(paper, sreq);
+    assert.ok(problems.some((p) => p.includes("Section A marks add up to 53")));
+  });
+
+  it("rejects a Section B question that is not 12 marks", () => {
+    const paper = mockPaper(sreq);
+    paper.sections[1].questions[0].marks -= 1;
+    paper.sections[1].questions[0].markingScheme[0].marks -= 1;
+    assert.ok(validatePaper(paper, sreq).some((p) => p.includes("every Section B question must be worth exactly 12")));
+  });
+
+  it("needs exactly two sections", () => {
+    const paper = mockPaper(sreq);
+    paper.sections = [paper.sections[0]];
+    assert.ok(validatePaper(paper, sreq).some((p) => p.includes("exactly two sections")));
+  });
+
+  it("keeps a table, annulus and inequality diagram", () => {
+    const base = mockPaper(sreq) as any;
+    base.sections[0].questions[0].diagram = { type: "table", headers: ["x", "1"], rows: [["y", "2"]], rowLabels: true };
+    base.sections[0].questions[1].diagram = { type: "annulus", inner: "3,2 cm", outer: "3,5 cm" };
+    base.sections[0].questions[2].diagram = { type: "inequality", xMin: -3, xMax: 3, yMin: -3, yMax: 3, lines: [{ from: [0, 0], to: [3, 3] }], inside: [-1, 1] };
+    const parsed = paperSchema.parse(base);
+    assert.deepEqual(parsed.sections[0].questions.slice(0, 3).map((q) => q.diagram?.type), ["table", "annulus", "inequality"]);
+  });
+});

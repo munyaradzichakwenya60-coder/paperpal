@@ -1,4 +1,6 @@
+import { useId } from "react";
 import type { Diagram as DiagramData } from "../types";
+import { MathText } from "./MathText";
 
 const INK = "#111";
 const FONT = "Georgia, 'Times New Roman', serif";
@@ -278,6 +280,109 @@ function Circle({ d }: { d: Extract<DiagramData, { type: "circle" }> }) {
   );
 }
 
+
+// ── Table ───────────────────────────────────────────────────────────────────
+function Table({ d }: { d: Extract<DiagramData, { type: "table" }> }) {
+  const labelled = !!d.rowLabels;
+  return (
+    <table className={labelled ? "diagram-table row-labels" : "diagram-table"}>
+      <thead>
+        <tr>{d.headers.map((h, i) => <th key={i}><MathText>{h}</MathText></th>)}</tr>
+      </thead>
+      <tbody>
+        {d.rows.map((row, r) => (
+          <tr key={r}>
+            {row.map((cell, c) => <td key={c}><MathText>{cell}</MathText></td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ── Pipe / ring cross-section ───────────────────────────────────────────────
+const num = (s: string) => parseFloat(s.replace(",", ".").replace(/[^\d.]/g, ""));
+
+function Annulus({ d }: { d: Extract<DiagramData, { type: "annulus" }> }) {
+  const id = useId().replace(/:/g, "");
+  const cx = 150, cy = 105, R = 92;
+  const ratio = num(d.inner) / num(d.outer);
+  // Drawn with a visibly thick ring whatever the real sizes (the diagram is not to scale).
+  const r = R * (Number.isFinite(ratio) && ratio > 0.2 ? Math.min(ratio, 0.78) : 0.78);
+  return (
+    <svg viewBox="0 0 300 235" role="img" aria-label="Cross-section of a hollow pipe">
+      <defs>
+        <marker id={`${id}a`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill={INK} />
+        </marker>
+      </defs>
+      <circle cx={cx} cy={cy} r={R} fill="#c9c9c9" stroke={INK} strokeWidth="1.4" />
+      <circle cx={cx} cy={cy} r={r} fill="#fff" stroke={INK} strokeWidth="1.4" />
+      <line x1={cx - r + 2} x2={cx + r - 2} y1={cy} y2={cy} stroke={INK} strokeWidth="1" markerStart={`url(#${id}a)`} markerEnd={`url(#${id}a)`} />
+      <rect x={cx - 28} y={cy - 10} width="56" height="20" fill="#fff" />
+      <T x={cx} y={cy} size={13}>{d.inner}</T>
+      <line x1={cx - R} x2={cx + R} y1={cy + R + 18} y2={cy + R + 18} stroke={INK} strokeWidth="1" markerStart={`url(#${id}a)`} markerEnd={`url(#${id}a)`} />
+      <T x={cx} y={cy + R + 31} size={13}>{d.outer}</T>
+    </svg>
+  );
+}
+
+// ── Region defined by inequalities ──────────────────────────────────────────
+function Inequality({ d }: { d: Extract<DiagramData, { type: "inequality" }> }) {
+  const id = useId().replace(/:/g, "");
+  const W = 320, H = 300, pad = 22;
+  const scale = Math.min((W - pad * 2) / (d.xMax - d.xMin), (H - pad * 2) / (d.yMax - d.yMin));
+  const px = (x: number) => pad + (x - d.xMin) * scale;
+  const py = (y: number) => H - pad - (y - d.yMin) * scale;
+  const ax = Math.min(Math.max(0, d.xMin), d.xMax), ay = Math.min(Math.max(0, d.yMin), d.yMax);
+
+  const far = 1000;
+  const lines = d.lines.map((l, i) => {
+    const [x1, y1] = l.from, [x2, y2] = l.to;
+    let dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len; dy /= len;
+    let nx = -dy, ny = dx;
+    if (nx * (d.inside[0] - x1) + ny * (d.inside[1] - y1) > 0) { nx = -nx; ny = -ny; }
+    const a: [number, number] = [x1 - dx * far, y1 - dy * far];
+    const b: [number, number] = [x1 + dx * far, y1 + dy * far];
+    const hatch = [a, b, [b[0] + nx * far, b[1] + ny * far], [a[0] + nx * far, a[1] + ny * far]]
+      .map(([x, y]) => `${px(x)},${py(y)}`).join(" ");
+    return { i, a, b, hatch, dashed: !!l.dashed };
+  });
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Region defined by inequalities">
+      <defs>
+        <pattern id={`${id}p`} width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="9" stroke={INK} strokeWidth="1" />
+        </pattern>
+        <clipPath id={`${id}c`}><rect x={px(d.xMin)} y={py(d.yMax)} width={px(d.xMax) - px(d.xMin)} height={py(d.yMin) - py(d.yMax)} /></clipPath>
+      </defs>
+      <g clipPath={`url(#${id}c)`}>
+        {lines.map((l) => <polygon key={`h${l.i}`} points={l.hatch} fill={`url(#${id}p)`} stroke="none" />)}
+        {lines.map((l) => (
+          <line key={`l${l.i}`} x1={px(l.a[0])} y1={py(l.a[1])} x2={px(l.b[0])} y2={py(l.b[1])}
+            stroke={INK} strokeWidth="1.5" strokeDasharray={l.dashed ? "6 5" : undefined} />
+        ))}
+      </g>
+      <line x1={px(d.xMin)} x2={px(d.xMax)} y1={py(ay)} y2={py(ay)} stroke={INK} strokeWidth="1.2" />
+      <line x1={px(ax)} x2={px(ax)} y1={py(d.yMin)} y2={py(d.yMax)} stroke={INK} strokeWidth="1.2" />
+      <T x={px(d.xMax) - 4} y={py(ay) + 12} italic>x</T>
+      <T x={px(ax) + 10} y={py(d.yMax) + 6} italic>y</T>
+      <T x={px(ax) - 8} y={py(ay) + 10} size={11}>0</T>
+      {d.regionLabel && <T x={px(d.inside[0])} y={py(d.inside[1])} size={15}>{d.regionLabel}</T>}
+      {d.points?.map((p, i) => (
+        <g key={i}>
+          <circle cx={px(p.x)} cy={py(p.y)} r="2.5" fill={INK} />
+          <rect x={px(p.x) + 4} y={py(p.y) - 17} width={p.label.length * 6.4 + 6} height="15" fill="#fff" />
+          <T x={px(p.x) + 7} y={py(p.y) - 9} anchor="start" size={11}>{p.label}</T>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 export function Diagram({ diagram }: { diagram: DiagramData }) {
   let body: React.ReactNode = null;
   switch (diagram.type) {
@@ -287,6 +392,9 @@ export function Diagram({ diagram }: { diagram: DiagramData }) {
     case "grid": body = <Grid d={diagram} />; break;
     case "bar": body = <Bar d={diagram} />; break;
     case "circle": body = <Circle d={diagram} />; break;
+    case "table": body = <Table d={diagram} />; break;
+    case "annulus": body = <Annulus d={diagram} />; break;
+    case "inequality": body = <Inequality d={diagram} />; break;
   }
   return <figure className={`diagram diagram-${diagram.type}`}>{body}</figure>;
 }

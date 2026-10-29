@@ -17,6 +17,13 @@ const typeGuide = {
     "SECTION B: structured questions with parts (a), (b), (c). " +
     "Number questions continuously across both sections. " +
     "In the marking scheme use M/A/B labels for structured questions and state the correct option for multiple-choice.",
+  sectioned:
+    "A two-section paper in the style of a ZIMSEC Paper 2. " +
+    "SECTION A (compulsory): exactly 5 structured questions, numbered 1 to 5, worth exactly 52 marks in total (for example 8, 10, 10, 12 and 12). " +
+    "SECTION B: exactly 7 structured questions, numbered 6 to 12, each worth exactly 12 marks. Candidates answer all of Section A and any four questions of Section B. " +
+    "Every numbered question has several lettered parts (a), (b), (c) and most parts have roman sub-parts (i), (ii), (iii); each sub-part carries its own mark (1 to 5). " +
+    "Section A questions are short and test the basics of different topics. Section B questions are longer and each combines three or four different skills from the chosen topics. " +
+    "No options. Candidates write in an answer booklet, so set answerLines to 0 on every question.",
 } as const;
 
 const difficultyGuide = {
@@ -47,6 +54,10 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
       `SECTION A: exactly ${req.questionCount} multiple-choice questions, each worth 1 mark (${req.questionCount} marks total). ` +
       `SECTION B: structured questions totalling exactly ${structuredMarks} marks. ` +
       `Grand total: exactly ${req.totalMarks} marks.`;
+  } else if (req.paperType === "sectioned") {
+    markInstruction =
+      "Marks: Section A is exactly 52 marks. Section B has 7 questions of exactly 12 marks each (84 marks), of which candidates answer 4 (48 marks). " +
+      "The paper is out of 100 marks for the candidate.";
   } else {
     markInstruction = `Total marks: exactly ${req.totalMarks}. Distribute across questions as appropriate for the topic.`;
   }
@@ -64,11 +75,18 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     "FORMATTING RULES — follow exactly:",
     "- Do NOT write cover-page instructions, a paper title, or any school or exam board name. PaperPal prints those itself.",
     "- Each question must have a clear question number (1, 2, 3 … continuously) and its marks shown as [n] — the marks field.",
-    "- Parts of a question use (a), (b), (c) as the question number field (e.g. \"1(a)\", \"1(b)\").",
+    "- Number format in the number field: \"1\" for a question with no parts, \"1(a)\" and \"1(b)\" for parts, \"1(a)(i)\" and \"1(a)(ii)\" for sub-parts. Write every part as its own question object, in order.",
+    "- stem: text shared by all parts of a numbered question (for example the setting of question 3), written only on the FIRST part of that question, otherwise null.",
+    "- partStem: text shared by the sub-parts (i), (ii) of one lettered part, written only on the FIRST sub-part of that part, otherwise null. The text field of each part then holds only that part's own request.",
+    "- For a question that candidates must answer on graph paper, end the stem with: \"Answer the whole of this question on a sheet of graph paper.\"",
     "- Use Zimbabwean context where natural: US dollars, local names (Tinashe, Chido, Farai, Sibongile), local places.",
     "- Keep language simple, unambiguous and at the right reading level for the candidate.",
-    "- Do not use LaTeX. Write mathematics in plain text: x^2, 3/4, sqrt(5), >=, <=, angle ABC.",
-    "- Each structured question or part must have an answerLines field (integer, 1–6) indicating how many answer lines to show below it.",
+    "- Do not use LaTeX. PaperPal typesets this plain-text notation everywhere (questions, options, marking scheme, tables):",
+    "  powers x^2 or (a+b)^2 or M^(-1); subscripts x_1 or 503_6; fractions frac(3,4); mixed numbers 2 frac(1,2); roots sqrt(5);",
+    "  matrices mat(3,a;4,2) (commas between columns, semicolons between rows) and column vectors mat(7;-3); comparison signs <=, >=, !=; multiplication *.",
+    "  You may also type these symbols directly: ξ ∪ ∩ ∈ ∉ ⊂ π ° ± √ ∠ θ × ÷ ≤ ≥.",
+    "- For Mathematics follow ZIMSEC conventions: a decimal comma (1,4 km; 4,5 %), a space between thousands ($7 200), coordinates and set elements separated by semicolons ((-3; 8), {1; 2; 3}).",
+    "- Each structured question or part must have an answerLines field (integer, 1–6, or 0 for none) indicating how many answer lines to show below it.",
     "",
     "DIAGRAMS:",
     "- If a question needs a figure, add a \"diagram\" object to that question. PaperPal draws it. Never describe a figure only in words, and never write 'the diagram' unless you include a diagram object.",
@@ -79,6 +97,10 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     "- Coordinate grid (reflection, translation, enlargement, plotting): {\"type\":\"grid\",\"xMin\":-6,\"xMax\":6,\"yMin\":-6,\"yMax\":6,\"points\":[{\"label\":\"P\",\"x\":3,\"y\":-2}],\"polygons\":[{\"name\":\"A\",\"points\":[[1,1],[3,1],[3,2]]}]}.",
     "- Bar chart: {\"type\":\"bar\",\"title\":\"Goals scored\",\"xLabel\":\"Team\",\"yLabel\":\"Goals\",\"bars\":[{\"label\":\"Lions\",\"value\":12}]}.",
     "- Circle (circle theorems): {\"type\":\"circle\",\"centre\":\"O\",\"points\":[\"A\",\"B\",\"C\",\"D\"],\"chords\":[[\"A\",\"B\"],[\"B\",\"C\"]],\"radii\":[\"A\",\"C\"],\"marks\":[{\"at\":\"B\",\"text\":\"40°\"}]}. Points are spread evenly around the circle in the order given.",
+    "- Table (a table of values, a frequency table): {\"type\":\"table\",\"headers\":[\"x\",\"1\",\"2\",\"3\"],\"rows\":[[\"y\",\"12\",\"6\",\"4\"]],\"rowLabels\":true}. Use the maths notation inside cells. A blank cell the candidate must fill can be a letter such as m.",
+    "- Pipe or ring cross-section: {\"type\":\"annulus\",\"inner\":\"3,2 cm\",\"outer\":\"3,5 cm\"} (inner and outer diameter).",
+    "- Region defined by inequalities (hatched on the unwanted side): {\"type\":\"inequality\",\"xMin\":-4,\"xMax\":5,\"yMin\":-4,\"yMax\":5,\"lines\":[{\"from\":[-2,-4],\"to\":[-2,5],\"dashed\":true},{\"from\":[0,0],\"to\":[3,3]}],\"inside\":[0,2],\"regionLabel\":\"R\",\"points\":[{\"x\":3,\"y\":3,\"label\":\"(3; 3)\"}]}. inside is any point in the wanted region.",
+    "- Do NOT draw a grid for a question that asks candidates to draw a graph, a histogram or a transformation. Give the table or coordinates in the text and tell them to use graph paper.",
     "- Use a diagram whenever the topic naturally needs one (sets, geometry, graphs, statistics, transformations, inequalities). For Mathematics papers aim for at least one or two diagram questions when the topics allow. Other subjects: only when really needed.",
     "- Answer-space questions that ask candidates to draw or shade (for example 'shade the region') should give the blank figure.",
     "",
@@ -99,11 +121,13 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     `{
   "sections": [
     {
-      "title": string,
+      "title": string,   // e.g. "Section A" ("Section A [52 marks]" style headings are added by PaperPal)
       "instructions": string | null,
       "questions": [
         {
           "number": string,
+          "stem": string | null,
+          "partStem": string | null,
           "text": string,
           "marks": integer,
           "answerLines": integer,

@@ -1,89 +1,188 @@
 import type { GeneratedPaper, Profile, Question } from "../types";
 import { Diagram } from "./Diagram";
+import { MathText } from "./MathText";
 
 type Props = { paper: GeneratedPaper; view: "paper" | "scheme"; profile: Profile | null };
-
 
 const levelLine = { "O-Level": "Ordinary Level", "A-Level": "Advanced Level" } as const;
 const typeLine = {
   structured: "Structured questions",
   "multiple-choice": "Multiple choice",
   mixed: "Multiple choice and structured questions",
+  sectioned: "Paper 2",
 } as const;
 
-/** "1(a)" -> { main: "1", part: "(a)" }. A plain "3" has no part. */
-function splitNumber(n: string): { main: string; part: string } {
-  const m = n.trim().match(/^(\d+)\s*\.?\s*(.*)$/);
-  if (!m) return { main: n, part: "" };
-  const rest = m[2].trim();
-  if (!rest) return { main: m[1], part: "" };
-  return { main: m[1], part: /^[a-z]{1,4}$/i.test(rest) ? `(${rest})` : rest };
+// Fixed shape of a sectioned paper (same numbers the server enforces).
+const SECTION_NOTES = [
+  { marks: 52, note: "Answer all questions in this section." },
+  { marks: 48, note: "Answer any four questions from this section.", extra: "Each question carries 12 marks." },
+] as const;
+
+// ── Question numbering: "1(a)(ii)" -> main 1, letter a, roman ii ────────────
+type Parsed = { main: string; letter: string; roman: string };
+
+function parseNumber(n: string): Parsed {
+  const m = n.trim().match(/^(\d+)\s*\.?\s*(?:\(?([a-z])\)?)?\s*(?:\(?([ivx]+)\)?)?$/i);
+  if (!m) return { main: n.trim(), letter: "", roman: "" };
+  return { main: m[1], letter: (m[2] ?? "").toLowerCase(), roman: (m[3] ?? "").toLowerCase() };
 }
 
-/** Groups consecutive questions that share a main number, so 1(a) 1(b) 1(c) sit under one "1". */
-function groupQuestions(questions: Question[]): { main: string; parts: { q: Question; part: string }[] }[] {
-  const groups: { main: string; parts: { q: Question; part: string }[] }[] = [];
+type Sub = { roman: string; q: Question };
+type Letter = { letter: string; partStem: string | null; subs: Sub[] };
+type Main = { main: string; stem: string | null; letters: Letter[] };
+
+function groupQuestions(questions: Question[]): Main[] {
+  const mains: Main[] = [];
   for (const q of questions) {
-    const { main, part } = splitNumber(q.number);
-    const last = groups[groups.length - 1];
-    if (last && last.main === main && part) last.parts.push({ q, part });
-    else groups.push({ main, parts: [{ q, part }] });
+    const p = parseNumber(q.number);
+    let main = mains[mains.length - 1];
+    if (!main || main.main !== p.main) {
+      main = { main: p.main, stem: null, letters: [] };
+      mains.push(main);
+    }
+    if (q.stem && !main.stem) main.stem = q.stem;
+    let letter = main.letters[main.letters.length - 1];
+    if (!letter || letter.letter !== p.letter || (!p.letter && !p.roman)) {
+      letter = { letter: p.letter, partStem: null, subs: [] };
+      main.letters.push(letter);
+    }
+    if (q.partStem && !letter.partStem) letter.partStem = q.partStem;
+    letter.subs.push({ roman: p.roman, q });
   }
-  return groups;
+  return mains;
 }
 
-function candidateInstructions(paper: GeneratedPaper): { materials: string | null; read: string[]; info: string[] } {
-  const { meta } = paper;
-  const maths = /mathematics/i.test(meta.subject);
-  const calc = maths || /physics|chemistry/i.test(meta.subject);
-  const read = [
-    "Write your name and class in the spaces at the top of this page.",
-    "Write in dark blue or black pen. You may use a soft pencil for any diagrams or graphs.",
-    "Do not use staples, paper clips, glue or correction fluid.",
-  ];
-  if (meta.paperType === "multiple-choice") {
-    read.push("Answer all questions. For each question, circle the letter of the best answer.");
-  } else if (meta.paperType === "mixed") {
-    read.push("Answer all questions in Section A and all questions in Section B. Write your Section B answers in the spaces provided.");
-  } else {
-    read.push("Answer all questions. Write your answers in the spaces provided.");
-  }
-  if (maths) {
-    read.push("If working is needed for any question it must be shown below that question.");
-    read.push("Omission of essential working will result in loss of marks.");
-    read.push("If the degree of accuracy is not specified in the question, and if the answer is not exact, give the answer to three significant figures. Give answers in degrees to one decimal place.");
-    read.push("For \u03c0, use either your calculator value or 3.142.");
-  }
-  read.push("At the end of the examination, hand in all your work.");
-  return {
-    materials: maths ? "Geometrical instruments, electronic calculator" : calc ? "Electronic calculator" : null,
-    read,
-    info: [
-      "The number of marks is given in brackets [ ] at the end of each question or part question.",
-      `The total of the marks for this paper is ${meta.totalMarks}.`,
-    ],
-  };
-}
-
-/** Render blank answer lines below a question */
 function AnswerLines({ count }: { count?: number }) {
   if (!count || count < 1) return null;
   return (
     <div className="answer-lines" aria-hidden="true">
-      {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="answer-line" />
-      ))}
+      {Array.from({ length: count }).map((_, i) => <div key={i} className="answer-line" />)}
     </div>
   );
 }
 
+function QuestionBody({ q }: { q: Question }) {
+  return (
+    <div className="q-body">
+      <p className="q-text"><MathText>{q.text}</MathText></p>
+      {q.diagram && <Diagram diagram={q.diagram} />}
+      {q.options && (
+        <ol className="options" type="A">
+          {q.options.map((o, i) => <li key={i}><MathText>{o}</MathText></li>)}
+        </ol>
+      )}
+      {!q.options && <AnswerLines count={q.answerLines ?? undefined} />}
+    </div>
+  );
+}
+
+function Marks({ n }: { n: number }) {
+  return <span className="q-marks">[{n}]</span>;
+}
+
+function MainQuestion({ m }: { m: Main }) {
+  return (
+    <div className="qmain">
+      <span className="qm-num">{m.main}</span>
+      <div className="qm-body">
+        {m.stem && <p className="q-stem"><MathText>{m.stem}</MathText></p>}
+        {m.letters.map((l, li) => {
+          const single = l.subs.length === 1 && !l.subs[0].roman;
+          if (single) {
+            const q = l.subs[0].q;
+            return (
+              <div key={li} className="qrow">
+                <span className="q-label">{l.letter ? `(${l.letter})` : ""}</span>
+                <QuestionBody q={q} />
+                <Marks n={q.marks} />
+              </div>
+            );
+          }
+          return (
+            <div key={li} className="qletter">
+              <div className="qrow">
+                <span className="q-label">{l.letter ? `(${l.letter})` : ""}</span>
+                <div className="q-body">{l.partStem && <p className="q-text"><MathText>{l.partStem}</MathText></p>}</div>
+                <span />
+              </div>
+              {l.subs.map(({ roman, q }) => (
+                <div key={q.number} className="qrow qsub">
+                  <span className="q-label">{roman ? `(${roman})` : ""}</span>
+                  <QuestionBody q={q} />
+                  <Marks n={q.marks} />
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Cover page text ─────────────────────────────────────────────────────────
+function coverInfo(paper: GeneratedPaper) {
+  const { meta } = paper;
+  const maths = /mathematics/i.test(meta.subject);
+  const sectioned = meta.paperType === "sectioned";
+
+  const materials: string[] = [];
+  if (maths) materials.push("Mathematical Instruments", "Mathematical Tables", "Non programmable Electronic Calculator");
+  else if (/physics|chemistry/i.test(meta.subject)) materials.push("Non programmable Electronic Calculator");
+  if (sectioned) materials.push("Answer booklet");
+
+  let read: string[];
+  let bold: string | null = null;
+  if (sectioned) {
+    read = [
+      "Write your name and class in the spaces provided on the answer booklet.",
+      "Answer all questions in Section A and any four questions from Section B.",
+      "If you use more than one booklet, fasten them together.",
+      "All working must be clearly shown on the same sheet as the rest of the answer.",
+    ];
+    if (maths) {
+      read.push(
+        "Omission of essential working will result in loss of marks.",
+        "If the degree of accuracy is not specified in the question and if the answer is not exact, the answer should be given correct to three significant figures. Answers in degrees should be given correct to one decimal place.",
+      );
+      bold = "Mathematical tables and Non programmable electronic calculators may be used to evaluate explicit numerical expressions.";
+    }
+  } else {
+    read = [
+      "Write your name and class in the spaces at the top of this page.",
+      "Write in dark blue or black pen. You may use a soft pencil for any diagrams or graphs.",
+      "Do not use staples, paper clips, glue or correction fluid.",
+      meta.paperType === "multiple-choice"
+        ? "Answer all questions. For each question, circle the letter of the best answer."
+        : meta.paperType === "mixed"
+          ? "Answer all questions in Section A and all questions in Section B. Write your Section B answers in the spaces provided."
+          : "Answer all questions. Write your answers in the spaces provided.",
+    ];
+    if (maths) {
+      read.push(
+        "If working is needed for any question it must be shown below that question.",
+        "Omission of essential working will result in loss of marks.",
+        "If the degree of accuracy is not specified in the question, and if the answer is not exact, give the answer to three significant figures. Give answers in degrees to one decimal place.",
+      );
+    }
+  }
+  return { materials, read, bold };
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 60) return `${minutes} minutes`;
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  const hours = `${h} hour${h > 1 ? "s" : ""}`;
+  return m ? `${hours} ${m} minutes` : hours;
+}
+
 export function PaperSheet({ paper, view, profile }: Props) {
   const { meta } = paper;
+  const sectioned = meta.paperType === "sectioned";
 
   if (view === "scheme") {
     return (
       <article className="sheet" aria-label="Marking scheme">
-        {/* Scheme header */}
         <header className="sheet-head">
           <div className="sheet-school">{profile?.schoolName ?? "School"}</div>
           {meta.examTitle && <div className="sheet-exam">{meta.examTitle}</div>}
@@ -111,14 +210,10 @@ export function PaperSheet({ paper, view, profile }: Props) {
                   <tr key={q.number} className="scheme-row">
                     <td className="col-q">{q.number}</td>
                     <td className="col-ans">
-                      {q.markingScheme.map((p, i) => (
-                        <div key={i} className="mark-point">{p.point}</div>
-                      ))}
+                      {q.markingScheme.map((p, i) => <div key={i} className="mark-point"><MathText>{p.point}</MathText></div>)}
                     </td>
                     <td className="col-m">
-                      {q.markingScheme.map((p, i) => (
-                        <div key={i} className="mark-point">{p.marks}</div>
-                      ))}
+                      {q.markingScheme.map((p, i) => <div key={i} className="mark-point">{p.marks}</div>)}
                     </td>
                   </tr>
                 ))}
@@ -129,33 +224,33 @@ export function PaperSheet({ paper, view, profile }: Props) {
 
         <footer className="sheet-foot">
           <span>Total: {meta.totalMarks} marks</span>
-          <span>Generated with AI — verify before use.</span>
+          <span>Generated with AI. Verify before use.</span>
         </footer>
       </article>
     );
   }
 
-  // ── Question paper view ────────────────────────────────────────────────────
-  const info = candidateInstructions(paper);
+  const info = coverInfo(paper);
   const singleUntitled = paper.sections.length === 1 && paper.sections[0].title === "Questions";
 
   return (
     <article className="sheet" aria-label="Question paper">
-
-      {/* Cover page */}
       <header className="sheet-head cover">
         <div className="sheet-school">{profile?.schoolName ?? "________________________ School"}</div>
         <div className={meta.examTitle ? "sheet-exam" : "sheet-exam blank"}>
           {meta.examTitle ?? "________________________ Examination"}
         </div>
-
         <p className="cover-level">{levelLine[meta.level]}</p>
-        <h2 className="sheet-title">{meta.subject}</h2>
-        <p className="sheet-paper-label">{typeLine[meta.paperType]}</p>
 
-        <div className="sheet-time-row">
-          <span>Time allowed: <strong>{formatDuration(meta.durationMinutes)}</strong></span>
-          <span>Total marks: <strong>{meta.totalMarks}</strong></span>
+        <div className="cover-subject-row">
+          <div>
+            <h2 className="cover-subject">{meta.subject}</h2>
+            <p className="cover-paper">{typeLine[meta.paperType]}</p>
+          </div>
+          <div className="cover-time">
+            <strong>{formatDuration(meta.durationMinutes)}</strong>
+            <span>Total marks: {meta.totalMarks}</span>
+          </div>
         </div>
 
         <div className="sheet-candidate-fields">
@@ -164,70 +259,52 @@ export function PaperSheet({ paper, view, profile }: Props) {
           <div className="candidate-field"><span>Date</span><div className="candidate-line" /></div>
         </div>
 
-        <p className="cover-note">Candidates answer on the question paper.</p>
-        {info.materials && <p className="cover-note"><strong>Additional materials:</strong> {info.materials}</p>}
+        {info.materials.length > 0 && (
+          <div className="cover-materials">
+            <p>Additional materials:</p>
+            {info.materials.map((m) => <p key={m}>{m}</p>)}
+          </div>
+        )}
 
         <div className="sheet-instructions-box">
-          <p className="instructions-heading">Read these instructions first</p>
+          <p className="instructions-heading">Instructions to candidates</p>
           <ul className="instructions-list">
             {info.read.map((line) => <li key={line}>{line}</li>)}
           </ul>
+          {info.bold && <p className="instructions-bold">{info.bold}</p>}
           <p className="instructions-heading instructions-heading-spaced">Information for candidates</p>
           <ul className="instructions-list">
-            {info.info.map((line) => <li key={line}>{line}</li>)}
-            <li>This question paper consists of <span className="page-count-blank">____</span> printed pages.</li>
+            <li>The number of marks is given in brackets [ ] at the end of each question or part question.</li>
+            {!sectioned && <li>The total of the marks for this paper is {meta.totalMarks}.</li>}
           </ul>
+          <p className="cover-pages">This question paper consists of <span className="page-count-blank">____</span> printed pages.</p>
         </div>
       </header>
 
-      <div className="turn-over">[Turn over]</div>
-
-      {paper.sections.map((section, sIdx) => (
-        <section key={sIdx} className="part">
-          {!singleUntitled && <h3 className="part-heading">{section.title}</h3>}
-          {section.instructions && <p className="part-note">{section.instructions}</p>}
-
-          <div className="questions">
-            {groupQuestions(section.questions).map((g) => (
-              <div key={g.main + "-" + g.parts[0].q.number} className="qgroup">
-                <span className="qg-num">{g.main}</span>
-                <div className="qg-parts">
-                  {g.parts.map(({ q, part }) => (
-                    <div key={q.number} className="qpart">
-                      <span className="qp-label">{part}</span>
-                      <div className="q-body">
-                        <p className="q-text">{q.text}</p>
-                        {q.diagram && <Diagram diagram={q.diagram} />}
-                        {q.options && (
-                          <ol className="options" type="A">
-                            {q.options.map((o, i) => <li key={i}>{o}</li>)}
-                          </ol>
-                        )}
-                        {!q.options && <AnswerLines count={q.answerLines} />}
-                      </div>
-                      <span className="q-marks">[{q.marks}]</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {sIdx < paper.sections.length - 1 && <div className="turn-over">[Turn over]</div>}
-        </section>
-      ))}
+      {paper.sections.map((section, sIdx) => {
+        const fixed = sectioned ? SECTION_NOTES[sIdx] : undefined;
+        const heading = fixed ? `${section.title.replace(/\s*\[.*$/, "")} [${fixed.marks} marks]` : section.title;
+        return (
+          <section key={sIdx} className="part">
+            {!singleUntitled && <h3 className={fixed ? "part-heading centred" : "part-heading"}>{heading}</h3>}
+            {fixed && (
+              <p className="part-note centred">
+                {fixed.note}
+                {"extra" in fixed && <><br />{fixed.extra}</>}
+              </p>
+            )}
+            {!fixed && section.instructions && <p className="part-note">{section.instructions}</p>}
+            <div className="questions">
+              {groupQuestions(section.questions).map((m) => <MainQuestion key={`${sIdx}-${m.main}`} m={m} />)}
+            </div>
+          </section>
+        );
+      })}
 
       <footer className="sheet-foot">
-        <span>Total: {meta.totalMarks} marks</span>
+        <span>{sectioned ? "Section A and any four questions from Section B" : `Total: ${meta.totalMarks} marks`}</span>
         <span>Generated with AI. The teacher must review before use.</span>
       </footer>
     </article>
   );
-}
-
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${minutes} minutes`;
-  const h = Math.floor(minutes / 60), m = minutes % 60;
-  const hours = `${h} hour${h > 1 ? "s" : ""}`;
-  return m ? `${hours} ${m} minutes` : hours;
 }
