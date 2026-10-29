@@ -1,6 +1,6 @@
 export class GenerationError extends Error {
   /** True for temporary problems (timeouts, rate limits, server errors) that are worth retrying. */
-  constructor(message: string, public readonly retryable = false) {
+  constructor(message: string, public readonly retryable = false, public readonly quota = false) {
     super(message);
   }
 }
@@ -45,13 +45,21 @@ export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<Ai
         ? "The AI service is busy right now. Please try again in a moment."
         : `The AI service rejected the request (status ${res.status}). Check the API key and model name.`,
       temporary,
+      res.status === 429,
     );
   }
 
-  const data = (await res.json()) as {
+  let data: {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
     usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
   };
+  try {
+    data = await res.json();
+  } catch (err) {
+    // A timeout can also hit while the answer is still downloading.
+    console.error("gemini body read failed:", (err as Error).message);
+    throw new GenerationError("The AI service took too long to answer. Please try again.", true);
+  }
   const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   if (!text) throw new GenerationError("The AI service returned an empty answer. Try again.", true);
   const u = data.usageMetadata;
