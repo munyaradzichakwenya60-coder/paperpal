@@ -99,6 +99,20 @@ describe("generatePaper with the Gemini provider", () => {
     assert.equal(paper.sections[0].questions[0].diagramPlaceholder, true);
   });
 
+  it("switches to the lighter Gemini model when the main one stays overloaded", async () => {
+    const good = mockPaper(req);
+    const urls: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      urls.push(String(url));
+      return /flash-lite/.test(String(url)) ? reply(good) : new Response("", { status: 503 });
+    }) as unknown as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(paper.meta.provider, "gemini");
+    assert.equal(urls.length, 3);
+    assert.match(urls[2], /gemini-2\.5-flash-lite/);
+  });
+
   it("gives up with a clear error after two invalid answers", async () => {
     const bad = mockPaper(req);
     bad.sections[0].questions[0].marks += 3;
