@@ -68,6 +68,49 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock
   };
 }
 
+const ROMANS = "(?:i|ii|iii|iv|v|vi|vii|viii|ix|x)";
+// A label the AI copied into the question text: "1(a)(i) ", "2(a) ", "(b) ", "(ii) ".
+const SELF_LABEL = new RegExp(`^\\s*(?:question\\s+)?(?:\\d+\\s*\\([a-z]\\)(?:\\(${ROMANS}\\))?|\\([a-z]\\)(?:\\(${ROMANS}\\))?|\\(${ROMANS}\\))\\s*[.:)-]?\\s+`, "i");
+
+function stripLabel(s: string | null | undefined): string | null | undefined {
+  if (!s) return s;
+  const out = s.replace(SELF_LABEL, "");
+  return out.length >= 3 ? out : s;
+}
+
+/**
+ * Tidies how the AI numbered and wrote the parts so the printed paper lines up:
+ * labels copied into the text are removed, a first part left as "1(a)" next to "1(a)(ii)" becomes "1(a)(i)",
+ * and a lead-in glued to the first sub-part ("Find ...: (i) Football only.") is split into a partStem.
+ */
+export function normalizeParts(paper: Paper): void {
+  const qs = paper.sections.flatMap((s) => s.questions);
+  for (const q of qs) {
+    q.text = stripLabel(q.text) as string;
+    q.stem = stripLabel(q.stem) ?? q.stem;
+    q.partStem = stripLabel(q.partStem) ?? q.partStem;
+  }
+  const key = (n: string) => n.trim().match(/^(\d+\s*\([a-z]\))\s*(?:\(([ivx]+)\))?$/i);
+  const groups = new Map<string, Paper["sections"][number]["questions"]>();
+  for (const q of qs) {
+    const m = key(q.number);
+    if (!m) continue;
+    const g = m[1].replace(/\s+/g, "").toLowerCase();
+    groups.set(g, [...(groups.get(g) ?? []), q]);
+  }
+  for (const [g, list] of groups) {
+    const hasRoman = list.some((q) => key(q.number)?.[2]);
+    const first = list[0];
+    if (!hasRoman || key(first.number)?.[2]) continue;
+    first.number = `${g}(i)`;
+    const split = /^(.*?)[:\s]*\(i\)\s+(.+)$/s.exec(first.text);
+    if (split && split[1].trim().length >= 3 && split[2].trim().length >= 3 && !first.partStem) {
+      first.partStem = split[1].trim().replace(/[:\s]+$/, "") + ":";
+      first.text = split[2].trim();
+    }
+  }
+}
+
 /**
  * Fixes small slips the AI makes so a whole paper is not thrown away for them:
  * a marking scheme that is 1 or 2 marks off its question gets the difference on its last point.
@@ -151,6 +194,7 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
 
       try {
         const parsed = paperSchema.parse(JSON.parse(stripFences(text)));
+        normalizeParts(parsed);
         const repaired = repairPaper(parsed);
         if (repaired.length) console.warn(`[${provider} attempt ${attempt}] adjusted marking schemes:`, repaired.join(", "));
         let problems = validatePaper(parsed, req);
