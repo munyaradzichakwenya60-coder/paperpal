@@ -7,8 +7,12 @@ export class GenerationError extends Error {
 
 const DEFAULT_MODEL = "gemini-2.5-flash";
 
+/** Token counts the provider reports for one call. Thinking tokens are billed as output. */
+export type Usage = { promptTokens: number; outputTokens: number; thinkingTokens: number };
+export type AiReply = { text: string; usage: Usage };
+
 /** Sends one prompt to the Gemini API and returns the raw text (expected to be JSON). */
-export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<string> {
+export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<AiReply> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GenerationError("No Gemini API key is configured on the server.");
   const model = (process.env.GEMINI_MODEL || DEFAULT_MODEL).replace(/["'\s]/g, "");
@@ -46,8 +50,13 @@ export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<st
 
   const data = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
   };
   const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
   if (!text) throw new GenerationError("The AI service returned an empty answer. Try again.", true);
-  return text;
+  const u = data.usageMetadata;
+  return {
+    text,
+    usage: { promptTokens: u?.promptTokenCount ?? 0, outputTokens: u?.candidatesTokenCount ?? 0, thinkingTokens: u?.thoughtsTokenCount ?? 0 },
+  };
 }

@@ -198,6 +198,8 @@ export type GeneratedPaper = Paper & {
     examTitle?: string;
     provider: "gemini" | "openrouter" | "mock";
     generatedAt: string;
+    /** What this paper cost to generate, summed over every AI call including retries. Used to plan pricing. */
+    usage?: { calls: number; promptTokens: number; outputTokens: number; thinkingTokens: number; estimatedCostUsd: number | null };
   };
 };
 

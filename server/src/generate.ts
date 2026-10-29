@@ -1,4 +1,4 @@
-import { callGemini, GenerationError } from "./gemini.js";
+import { callGemini, GenerationError, type AiReply, type Usage } from "./gemini.js";
 import { callOpenRouter } from "./openrouter.js";
 import { mockPaper } from "./mock.js";
 import { buildPrompt } from "./prompt.js";
@@ -25,7 +25,7 @@ export function activeProvider(): Provider | "mock" {
   return providerChain()[0] ?? "mock";
 }
 
-function callProvider(provider: Provider, prompt: string, timeoutMs: number): Promise<string> {
+function callProvider(provider: Provider, prompt: string, timeoutMs: number): Promise<AiReply> {
   return provider === "openrouter" ? callOpenRouter(prompt, timeoutMs) : callGemini(prompt, timeoutMs);
 }
 
@@ -33,7 +33,24 @@ function stripFences(text: string): string {
   return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
 }
 
-function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock"): GeneratedPaper {
+// USD per 1M tokens (input, output) as listed by Google for Gemini 2.5 Flash. Override with GEMINI_PRICE_IN / GEMINI_PRICE_OUT.
+const PRICE_IN = Number(process.env.GEMINI_PRICE_IN) || 0.3;
+const PRICE_OUT = Number(process.env.GEMINI_PRICE_OUT) || 2.5;
+
+type Tally = Usage & { calls: number };
+const emptyTally = (): Tally => ({ calls: 0, promptTokens: 0, outputTokens: 0, thinkingTokens: 0 });
+
+/** Estimated cost; only meaningful for Gemini paid pricing. OpenRouter free models cost nothing. */
+function costUsd(t: Tally, provider: Provider | "mock"): number | null {
+  if (provider !== "gemini") return null;
+  return Number(((t.promptTokens * PRICE_IN + (t.outputTokens + t.thinkingTokens) * PRICE_OUT) / 1_000_000).toFixed(5));
+}
+
+function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock", tally: Tally = emptyTally()): GeneratedPaper {
+  const usage = { ...tally, estimatedCostUsd: costUsd(tally, provider) };
+  if (provider !== "mock") {
+    console.log(`[usage] ${provider} ${req.subject} ${req.paperType} ${req.questionCount ?? "?"}q calls=${usage.calls} in=${usage.promptTokens} out=${usage.outputTokens} think=${usage.thinkingTokens} cost=$${usage.estimatedCostUsd ?? "n/a"}`);
+  }
   return {
     ...paper,
     meta: {
@@ -46,6 +63,7 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock
       examTitle: req.examTitle,
       provider,
       generatedAt: new Date().toISOString(),
+      usage,
     },
   };
 }
@@ -64,6 +82,7 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
   const deadline = Date.now() + TIME_BUDGET_MS;
   let feedback = "";
   let lastError: unknown = null;
+  const tally = emptyTally();
 
   for (const [index, provider] of chain.entries()) {
     const hasBackup = index < chain.length - 1;
@@ -73,7 +92,12 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
 
       let text = "";
       try {
-        text = await callProvider(provider, buildPrompt(req, feedback), Math.min(MAX_ATTEMPT_MS, remaining));
+        const reply = await callProvider(provider, buildPrompt(req, feedback), Math.min(MAX_ATTEMPT_MS, remaining));
+        text = reply.text;
+        tally.calls += 1;
+        tally.promptTokens += reply.usage.promptTokens;
+        tally.outputTokens += reply.usage.outputTokens;
+        tally.thinkingTokens += reply.usage.thinkingTokens;
       } catch (err) {
         lastError = err;
         if (!(err instanceof GenerationError)) throw err;
@@ -90,7 +114,7 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
       try {
         const parsed = paperSchema.parse(JSON.parse(stripFences(text)));
         const problems = validatePaper(parsed, req);
-        if (problems.length === 0) return withMeta(parsed, req, provider);
+        if (problems.length === 0) return withMeta(parsed, req, provider, tally);
         console.error(`[${provider} attempt ${attempt}] validation problems:`, problems);
         feedback = problems.join(" ");
       } catch (err) {

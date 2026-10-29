@@ -68,6 +68,26 @@ describe("generatePaper with the Gemini provider", () => {
     assert.equal(paper.meta.provider, "gemini");
   });
 
+  it("adds up token usage across retries and estimates the cost", async () => {
+    const bad = mockPaper(req);
+    bad.sections[0].questions[0].marks += 3;
+    const good = mockPaper(req);
+    const withUsage = (obj: unknown) =>
+      new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }],
+        usageMetadata: { promptTokenCount: 1000, candidatesTokenCount: 4000, thoughtsTokenCount: 2000 },
+      }));
+    globalThis.fetch = (async () => withUsage(calls++ === 0 ? bad : good)) as typeof fetch;
+
+    const u = (await generatePaper(req)).meta.usage!;
+    assert.equal(u.calls, 2);
+    assert.equal(u.promptTokens, 2000);
+    assert.equal(u.outputTokens, 8000);
+    assert.equal(u.thinkingTokens, 4000);
+    // 2000 in at $0.30 + 12000 out at $2.50 per million
+    assert.equal(u.estimatedCostUsd, 0.0306);
+  });
+
   it("gives up with a clear error after two invalid answers", async () => {
     const bad = mockPaper(req);
     bad.sections[0].questions[0].marks += 3;
