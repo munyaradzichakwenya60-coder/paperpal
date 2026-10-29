@@ -14,7 +14,7 @@ export default function App() {
   const profile = state.status === "authenticated" ? state.profile : null;
 
   const [syllabus, setSyllabus] = useState<Syllabus | null>(null);
-  const [provider, setProvider] = useState<"gemini" | "mock" | null>(null);
+  const [provider, setProvider] = useState<"gemini" | "openrouter" | "mock" | null>(null);
   const [paper, setPaper] = useState<GeneratedPaper | null>(null);
   const [view, setView] = useState<"paper" | "scheme">("paper");
   const [loading, setLoading] = useState(false);
