@@ -132,3 +132,47 @@ describe("diagrams", () => {
     assert.ok(problems.some((p) => p.includes("diagram")));
   });
 });
+
+describe("OpenRouter backup", () => {
+  const realFetch = globalThis.fetch;
+  const urls: string[] = [];
+
+  beforeEach(() => {
+    delete process.env.AI_PROVIDER;
+    process.env.GEMINI_API_KEY = "gem-key";
+    process.env.OPENROUTER_API_KEY = "or-key";
+    urls.length = 0;
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+  });
+
+  it("uses Gemini first and switches to OpenRouter when Gemini is out of quota", async () => {
+    const good = mockPaper(req);
+    globalThis.fetch = (async (url: string) => {
+      urls.push(String(url));
+      if (String(url).includes("generativelanguage")) return new Response("quota", { status: 429 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(good) } }] }));
+    }) as unknown as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(paper.meta.provider, "openrouter");
+    assert.equal(urls.length, 2);
+    assert.ok(urls[0].includes("generativelanguage"));
+    assert.ok(urls[1].includes("openrouter.ai"));
+  });
+
+  it("does not touch OpenRouter while Gemini works", async () => {
+    const good = mockPaper(req);
+    globalThis.fetch = (async (url: string) => {
+      urls.push(String(url));
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(good) }] } }] }));
+    }) as unknown as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(paper.meta.provider, "gemini");
+    assert.equal(urls.length, 1);
+  });
+});

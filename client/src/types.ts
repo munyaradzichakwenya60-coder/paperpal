@@ -77,7 +77,7 @@ export type GeneratedPaper = {
     durationMinutes: number;
     totalMarks: number;
     examTitle?: string;
-    provider: "gemini" | "mock";
+    provider: "gemini" | "openrouter" | "mock";
     generatedAt: string;
   };
 };

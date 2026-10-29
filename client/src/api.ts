@@ -14,7 +14,7 @@ export async function getSyllabus(): Promise<Syllabus> {
   return res.json();
 }
 
-export async function getHealth(): Promise<{ ok: boolean; provider: "gemini" | "mock" }> {
+export async function getHealth(): Promise<{ ok: boolean; provider: "gemini" | "openrouter" | "mock" }> {
   const res = await fetch("/api/health");
   if (!res.ok) throw new Error("health");
   return res.json();
