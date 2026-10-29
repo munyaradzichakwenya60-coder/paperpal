@@ -52,8 +52,10 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock
 
 const MAX_ATTEMPTS = 3;
 const MIN_ATTEMPT_MS = 8_000;
-// Serverless functions have a hard time limit, so stop retrying before it is reached.
-const TIME_BUDGET_MS = Number(process.env.AI_TIME_BUDGET_MS) || 55_000;
+// A long paper (40 questions with marking schemes) can take a few minutes to write.
+const MAX_ATTEMPT_MS = 240_000;
+// Serverless functions have a hard time limit (maxDuration in vercel.json is 300 s), so stop before it.
+const TIME_BUDGET_MS = Number(process.env.AI_TIME_BUDGET_MS) || 270_000;
 
 export async function generatePaper(req: GenerateRequest): Promise<GeneratedPaper> {
   const chain = providerChain();
@@ -71,7 +73,7 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
 
       let text = "";
       try {
-        text = await callProvider(provider, buildPrompt(req, feedback), Math.min(40_000, remaining));
+        text = await callProvider(provider, buildPrompt(req, feedback), Math.min(MAX_ATTEMPT_MS, remaining));
       } catch (err) {
         lastError = err;
         if (!(err instanceof GenerationError)) throw err;
