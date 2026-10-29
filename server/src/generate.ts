@@ -2,7 +2,7 @@ import { callGemini, GenerationError, type AiReply, type Usage } from "./gemini.
 import { callOpenRouter } from "./openrouter.js";
 import { mockPaper } from "./mock.js";
 import { buildPrompt } from "./prompt.js";
-import { paperSchema, validatePaper, type GenerateRequest, type GeneratedPaper, type Paper } from "./schema.js";
+import { paperSchema, validatePaper, MISSING_DIAGRAM, type GenerateRequest, type GeneratedPaper, type Paper } from "./schema.js";
 
 export type Provider = "gemini" | "openrouter";
 
@@ -68,6 +68,38 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock
   };
 }
 
+/**
+ * Fixes small slips the AI makes so a whole paper is not thrown away for them:
+ * a marking scheme that is 1 or 2 marks off its question gets the difference on its last point.
+ * The question's own marks never change, so section and paper totals stay exact.
+ */
+export function repairPaper(paper: Paper): string[] {
+  const fixed: string[] = [];
+  for (const q of paper.sections.flatMap((s) => s.questions)) {
+    const total = q.markingScheme.reduce((s, p) => s + p.marks, 0);
+    const diff = q.marks - total;
+    if (diff === 0 || Math.abs(diff) > 2) continue;
+    // Take marks from (or give marks to) the last point that can absorb the change.
+    for (let i = q.markingScheme.length - 1; i >= 0; i--) {
+      const next = q.markingScheme[i].marks + diff;
+      if (next >= 1) {
+        q.markingScheme[i].marks = next;
+        fixed.push(`${q.number} ${diff > 0 ? "+" : ""}${diff}`);
+        break;
+      }
+    }
+  }
+  return fixed;
+}
+
+/** After the AI has been given a chance to fix them, figures it cannot draw become a placeholder for the teacher. */
+function addDiagramPlaceholders(paper: Paper, problems: string[]): void {
+  const open = new Set(problems.filter((p) => p.startsWith(MISSING_DIAGRAM)).map((p) => /question (\S+)\)/.exec(p)?.[1]));
+  for (const q of paper.sections.flatMap((s) => s.questions)) {
+    if (open.has(q.number)) q.diagramPlaceholder = true;
+  }
+}
+
 const MAX_ATTEMPTS = 3;
 const MIN_ATTEMPT_MS = 8_000;
 // A long paper (40 questions with marking schemes) can take a few minutes to write.
@@ -119,8 +151,17 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
 
       try {
         const parsed = paperSchema.parse(JSON.parse(stripFences(text)));
-        const problems = validatePaper(parsed, req);
+        const repaired = repairPaper(parsed);
+        if (repaired.length) console.warn(`[${provider} attempt ${attempt}] adjusted marking schemes:`, repaired.join(", "));
+        let problems = validatePaper(parsed, req);
         if (problems.length === 0) return withMeta(parsed, req, provider, tally);
+        // From the second try on, a paper whose only flaw is a figure the AI could not draw is still useful:
+        // the question gets a "diagram needed" box and the teacher adds the figure.
+        if (attempt >= 2 && problems.every((p) => p.startsWith(MISSING_DIAGRAM))) {
+          addDiagramPlaceholders(parsed, problems);
+          problems = validatePaper(parsed, req);
+          if (problems.length === 0) return withMeta(parsed, req, provider, tally);
+        }
         console.error(`[${provider} attempt ${attempt}] validation problems:`, problems);
         feedback = problems.join(" ");
       } catch (err) {
