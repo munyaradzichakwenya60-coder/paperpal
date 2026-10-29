@@ -283,3 +283,19 @@ describe("normalizeParts", () => {
     assert.equal(q[4].text, "Tinashe bought a bicycle.");
   });
 });
+
+describe("new diagram types", () => {
+  const base = { number: "1", text: "Look at the figure.", marks: 1, markingScheme: [{ point: "x", marks: 1 }] };
+  const parse = (diagram: unknown) => paperSchema.parse({ sections: [{ questions: [{ ...base, diagram }] }] }).sections[0].questions[0].diagram;
+
+  it("accepts a solid, a bearing journey and a function graph", () => {
+    assert.equal(parse({ type: "solid", shape: "cone", radius: "5 cm", height: "12 cm" })?.type, "solid");
+    assert.equal(parse({ type: "bearing", origin: "P", legs: [{ to: "Q", bearing: 60, distance: "8 km" }, { to: "R", bearing: 150 }] })?.type, "bearing");
+    assert.equal(parse({ type: "graph", xMin: -3, xMax: 5, yMin: -4, yMax: 10, curves: [{ expr: "x^2 - 2x - 3" }, { expr: "12/x" }, { expr: "2(x+1)" }] })?.type, "graph");
+  });
+  it("drops a graph with an unreadable formula or an impossible shape", () => {
+    assert.equal(parse({ type: "graph", xMin: -3, xMax: 5, yMin: -4, yMax: 10, curves: [{ expr: "process.exit()" }] }), undefined);
+    assert.equal(parse({ type: "solid", shape: "torus" }), undefined);
+    assert.equal(parse({ type: "bearing", origin: "P", legs: [{ to: "Q", bearing: 400 }] }), undefined);
+  });
+});

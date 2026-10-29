@@ -1,6 +1,7 @@
 import { useId } from "react";
 import type { Diagram as DiagramData } from "../types";
 import { MathText } from "./MathText";
+import { Solid, Bearing, Graph } from "./Diagram2";
 
 const INK = "#111";
 const FONT = "Georgia, 'Times New Roman', serif";
@@ -395,6 +396,9 @@ export function Diagram({ diagram }: { diagram: DiagramData }) {
     case "table": body = <Table d={diagram} />; break;
     case "annulus": body = <Annulus d={diagram} />; break;
     case "inequality": body = <Inequality d={diagram} />; break;
+    case "solid": body = <Solid d={diagram} />; break;
+    case "bearing": body = <Bearing d={diagram} />; break;
+    case "graph": body = <Graph d={diagram} />; break;
   }
   return <figure className={`diagram diagram-${diagram.type}`}>{body}</figure>;
 }
