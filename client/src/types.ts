@@ -73,6 +73,7 @@ export type Question = {
   answerLines?: number;
   options?: string[];
   diagram?: Diagram | null;
+  diagramPlaceholder?: boolean | null;
   markingScheme: MarkingPoint[];
 };
 export type Section = { title: string; instructions?: string; questions: Question[] };

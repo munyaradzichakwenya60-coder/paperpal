@@ -101,6 +101,7 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     "- Pipe or ring cross-section: {\"type\":\"annulus\",\"inner\":\"3,2 cm\",\"outer\":\"3,5 cm\"} (inner and outer diameter).",
     "- Region defined by inequalities (hatched on the unwanted side): {\"type\":\"inequality\",\"xMin\":-4,\"xMax\":5,\"yMin\":-4,\"yMax\":5,\"lines\":[{\"from\":[-2,-4],\"to\":[-2,5],\"dashed\":true},{\"from\":[0,0],\"to\":[3,3]}],\"inside\":[0,2],\"regionLabel\":\"R\",\"points\":[{\"x\":3,\"y\":3,\"label\":\"(3; 3)\"}]}. inside is any point in the wanted region.",
     "- Do NOT draw a grid for a question that asks candidates to draw a graph, a histogram or a transformation. Give the table or coordinates in the text and tell them to use graph paper.",
+    "- Only write 'the diagram', 'the figure' or 'the graph' when you include a valid diagram object using one of the types above with every required field filled. If no listed type fits (cylinders, cones, bearings, function graphs, cumulative frequency curves), do not refer to a figure: describe the situation fully in words with every length and angle given.",
     "- Use a diagram whenever the topic naturally needs one (sets, geometry, graphs, statistics, transformations, inequalities). For Mathematics papers aim for at least one or two diagram questions when the topics allow. Other subjects: only when really needed.",
     "- Answer-space questions that ask candidates to draw or shade (for example 'shade the region') should give the blank figure.",
     "",

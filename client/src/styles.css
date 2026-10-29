@@ -1153,3 +1153,6 @@ sup, sub { line-height: 0; font-size: 0.72em; }
   }
   .sheet { padding: 0 !important; }
 }
+
+.diagram-missing { margin: 8px 0; padding: 22px 14px; border: 1.5px dashed #8a8a8a; border-radius: 6px; color: #555; font-size: 0.9em; text-align: center; }
+@media print { .diagram-missing { color: #777; } }

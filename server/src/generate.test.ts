@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { generatePaper } from "./generate.js";
+import { generatePaper, repairPaper } from "./generate.js";
 import { mockPaper } from "./mock.js";
 import { paperSchema, validatePaper, type GenerateRequest } from "./schema.js";
 
@@ -86,6 +86,17 @@ describe("generatePaper with the Gemini provider", () => {
     assert.equal(u.thinkingTokens, 4000);
     // 2000 in at $0.30 + 12000 out at $2.50 per million
     assert.equal(u.estimatedCostUsd, 0.0306);
+  });
+
+  it("keeps a paper whose only flaw is a figure the AI could not draw, and flags the question", async () => {
+    const flawed = mockPaper(req);
+    flawed.sections[0].questions[0].text = "Use the diagram below to find the area.";
+    flawed.sections[0].questions[0].diagram = undefined;
+    globalThis.fetch = (async () => reply(flawed)) as typeof fetch;
+
+    const paper = await generatePaper(req);
+    assert.equal(paper.meta.usage!.calls, 2);
+    assert.equal(paper.sections[0].questions[0].diagramPlaceholder, true);
   });
 
   it("gives up with a clear error after two invalid answers", async () => {
@@ -232,5 +243,18 @@ describe("sectioned paper (Sections A and B)", () => {
     base.sections[0].questions[2].diagram = { type: "inequality", xMin: -3, xMax: 3, yMin: -3, yMax: 3, lines: [{ from: [0, 0], to: [3, 3] }], inside: [-1, 1] };
     const parsed = paperSchema.parse(base);
     assert.deepEqual(parsed.sections[0].questions.slice(0, 3).map((q) => q.diagram?.type), ["table", "annulus", "inequality"]);
+  });
+});
+
+describe("repairPaper", () => {
+  it("moves a marking scheme that is 1 or 2 marks off onto its last point, and leaves bigger gaps alone", () => {
+    const p = mockPaper(req);
+    const [q1, q2] = p.sections[0].questions;
+    q1.markingScheme = [{ point: "a", marks: q1.marks - 1 }];
+    q2.markingScheme = [{ point: "b", marks: q2.marks + 5 }];
+    const fixed = repairPaper(p);
+    assert.equal(q1.markingScheme.reduce((s, x) => s + x.marks, 0), q1.marks);
+    assert.equal(q2.markingScheme[0].marks, q2.marks + 5);
+    assert.equal(fixed.length, 1);
   });
 });

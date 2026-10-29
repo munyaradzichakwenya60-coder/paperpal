@@ -169,6 +169,8 @@ const question = z.object({
   options: z.array(z.string().min(1)).length(4).optional().nullable(),
   // A malformed figure is dropped (not fatal); validatePaper then asks the AI to redraw it if the text needs one.
   diagram: diagramSchema.nullish().catch(undefined),
+  /** Set by the server when the question refers to a figure the AI could not describe. The teacher draws or pastes it in. */
+  diagramPlaceholder: z.boolean().nullish(),
   markingScheme: z.array(markingPoint).min(1),
 });
 
@@ -202,6 +204,9 @@ export type GeneratedPaper = Paper & {
     usage?: { calls: number; promptTokens: number; outputTokens: number; thinkingTokens: number; estimatedCostUsd: number | null };
   };
 };
+
+/** Prefix of the problem raised for a missing diagram, so the generator can treat it as fixable by the teacher. */
+export const MISSING_DIAGRAM = "Missing diagram.";
 
 const needsDiagram = /\b(the (diagram|figure|graph|grid|number line|bar chart|circle)|(diagram|figure) (below|above|shows)|shown (below|above)|venn diagram)\b/i;
 
@@ -259,8 +264,8 @@ export function validatePaper(paper: Paper, req: GenerateRequest): string[] {
     if (schemeTotal !== q.marks) {
       problems.push(`Question ${q.number} is worth ${q.marks} marks but its marking scheme adds up to ${schemeTotal}.`);
     }
-    if (!q.diagram && needsDiagram.test(`${q.stem ?? ""} ${q.partStem ?? ""} ${q.text}`)) {
-      problems.push(`Question ${q.number} refers to a diagram, figure or Venn diagram but has no valid diagram object. Add one, or reword the question so it does not need one.`);
+    if (!q.diagram && !q.diagramPlaceholder && needsDiagram.test(`${q.stem ?? ""} ${q.partStem ?? ""} ${q.text}`)) {
+      problems.push(`${MISSING_DIAGRAM} (question ${q.number}) It refers to a diagram, figure or graph but has no valid diagram object. Use one of the supported diagram types with every field filled in, or reword the question so it is fully answerable from the words alone (describe the shape and give every length and angle in the text).`);
     }
     if (req.paperType === "multiple-choice" && !q.options) {
       problems.push(`Question ${q.number} must have exactly 4 options because this is a multiple-choice paper.`);

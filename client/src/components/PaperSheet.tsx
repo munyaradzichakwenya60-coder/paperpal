@@ -66,6 +66,7 @@ function QuestionBody({ q }: { q: Question }) {
     <div className="q-body">
       <p className="q-text"><MathText>{q.text}</MathText></p>
       {q.diagram && <Diagram diagram={q.diagram} />}
+      {!q.diagram && q.diagramPlaceholder && <div className="diagram-missing">Diagram needed: draw or paste the figure here before printing.</div>}
       {q.options && (
         <ol className="options" type="A">
           {q.options.map((o, i) => <li key={i}><MathText>{o}</MathText></li>)}
