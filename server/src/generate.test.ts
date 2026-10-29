@@ -108,3 +108,27 @@ it("a null section title from the AI falls back to a default", () => {
   });
   assert.equal(parsed.sections[0].title, "Questions");
 });
+
+describe("diagrams", () => {
+  const base = {
+    title: "x",
+    instructions: [],
+    sections: [{ title: "A", questions: [{ number: "1", text: "Shade the region on the Venn diagram.", marks: 1, markingScheme: [{ point: "ok", marks: 1 }] }] }],
+  };
+
+  it("keeps a valid diagram", () => {
+    const withDiagram = structuredClone(base) as any;
+    withDiagram.sections[0].questions[0].diagram = { type: "venn", sets: ["A", "B"], counts: [null, 3, null, 2] };
+    const parsed = paperSchema.parse(withDiagram);
+    assert.equal(parsed.sections[0].questions[0].diagram?.type, "venn");
+  });
+
+  it("drops a malformed diagram, and validation then asks for it again", () => {
+    const bad = structuredClone(base) as any;
+    bad.sections[0].questions[0].diagram = { type: "venn", sets: ["A"] };
+    const parsed = paperSchema.parse(bad);
+    assert.equal(parsed.sections[0].questions[0].diagram, undefined);
+    const problems = validatePaper(parsed, { ...req, totalMarks: 1 });
+    assert.ok(problems.some((p) => p.includes("diagram")));
+  });
+});

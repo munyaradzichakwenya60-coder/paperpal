@@ -98,7 +98,7 @@ app.post("/api/papers/generate", requireAuth, generateLimiter, async (req, res) 
       if (db && req.userId) {
         await db.from("papers").insert({
           user_id: req.userId,
-          title: paper.title,
+          title: paper.meta.examTitle || `${paper.meta.subject} ${paper.meta.level}`,
           subject: paper.meta.subject,
           level: paper.meta.level,
           total_marks: paper.meta.totalMarks,

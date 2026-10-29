@@ -62,16 +62,25 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     `Time allowed: ${req.durationMinutes} minutes (allow about 1–1.5 minutes per mark for structured questions).`,
     "",
     "FORMATTING RULES — follow exactly:",
-    "- Write instructions in the ZIMSEC style:",
-    '  Structured: "Answer all questions. Write your answers in the spaces provided."',
-    '  MCQ: "Answer all questions. For each question, circle the letter of the best answer."',
-    '  Mixed: "Answer all questions in Section A and all questions in Section B. Write Section B answers in the spaces provided."',
+    "- Do NOT write cover-page instructions, a paper title, or any school or exam board name. PaperPal prints those itself.",
     "- Each question must have a clear question number (1, 2, 3 … continuously) and its marks shown as [n] — the marks field.",
     "- Parts of a question use (a), (b), (c) as the question number field (e.g. \"1(a)\", \"1(b)\").",
     "- Use Zimbabwean context where natural: US dollars, local names (Tinashe, Chido, Farai, Sibongile), local places.",
     "- Keep language simple, unambiguous and at the right reading level for the candidate.",
     "- Do not use LaTeX. Write mathematics in plain text: x^2, 3/4, sqrt(5), >=, <=, angle ABC.",
     "- Each structured question or part must have an answerLines field (integer, 1–6) indicating how many answer lines to show below it.",
+    "",
+    "DIAGRAMS:",
+    "- If a question needs a figure, add a \"diagram\" object to that question. PaperPal draws it. Never describe a figure only in words, and never write 'the diagram' unless you include a diagram object.",
+    "- Do not write 'not drawn to scale' in the text. PaperPal adds it.",
+    "- Venn diagram: {\"type\":\"venn\",\"sets\":[\"F\",\"B\"],\"counts\":[...]}. Two sets: counts = [F only, both, B only, outside]. Three sets: counts = [A only, B only, C only, A&B only, A&C only, B&C only, all three, outside]. Use null for a region the candidate must fill in or shade, a number or a letter (e.g. \"x\") for a known region.",
+    "- Triangle: {\"type\":\"triangle\",\"vertices\":[\"A\",\"B\",\"C\"],\"sides\":[\"8 cm\",null,\"x\"],\"angles\":[null,\"40°\",null],\"rightAngleAt\":1}. sides = [AB, BC, CA], angles = at each vertex, rightAngleAt = vertex index or null.",
+    "- Number line (inequalities, integers): {\"type\":\"numberline\",\"min\":-5,\"max\":5,\"step\":1,\"points\":[{\"value\":2,\"style\":\"closed\",\"label\":null}],\"shade\":{\"from\":-3,\"to\":null,\"fromOpen\":true,\"toOpen\":false}}. A null end of shade runs off the line.",
+    "- Coordinate grid (reflection, translation, enlargement, plotting): {\"type\":\"grid\",\"xMin\":-6,\"xMax\":6,\"yMin\":-6,\"yMax\":6,\"points\":[{\"label\":\"P\",\"x\":3,\"y\":-2}],\"polygons\":[{\"name\":\"A\",\"points\":[[1,1],[3,1],[3,2]]}]}.",
+    "- Bar chart: {\"type\":\"bar\",\"title\":\"Goals scored\",\"xLabel\":\"Team\",\"yLabel\":\"Goals\",\"bars\":[{\"label\":\"Lions\",\"value\":12}]}.",
+    "- Circle (circle theorems): {\"type\":\"circle\",\"centre\":\"O\",\"points\":[\"A\",\"B\",\"C\",\"D\"],\"chords\":[[\"A\",\"B\"],[\"B\",\"C\"]],\"radii\":[\"A\",\"C\"],\"marks\":[{\"at\":\"B\",\"text\":\"40°\"}]}. Points are spread evenly around the circle in the order given.",
+    "- Use a diagram whenever the topic naturally needs one (sets, geometry, graphs, statistics, transformations, inequalities). For Mathematics papers aim for at least one or two diagram questions when the topics allow. Other subjects: only when really needed.",
+    "- Answer-space questions that ask candidates to draw or shade (for example 'shade the region') should give the blank figure.",
     "",
     "MARK ALLOCATION RULES:",
     "- Each question's marks field must equal the sum of its markingScheme marks.",
@@ -88,8 +97,6 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
     "",
     "Respond with JSON only, no markdown fences, in exactly this shape:",
     `{
-  "title": string,
-  "instructions": string[],
   "sections": [
     {
       "title": string,
@@ -101,6 +108,7 @@ export function buildPrompt(req: GenerateRequest, feedback = ""): string {
           "marks": integer,
           "answerLines": integer,
           "options": string[4] | null,
+          "diagram": object | null,
           "markingScheme": [
             { "point": string, "marks": integer }
           ]

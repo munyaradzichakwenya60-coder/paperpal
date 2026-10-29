@@ -37,6 +37,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
   const [structuredMarks, setStructuredMarks] = useState(20);
 
   const [durationMinutes, setDurationMinutes] = useState(60);
+  const [examTitle, setExamTitle] = useState("");
 
   // Only show subjects that have topics for the selected level
   const subjectsForLevel = syllabus.subjects.filter((s) => s.levels[level].length > 0);
@@ -91,6 +92,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
       totalMarks: derivedTotal,
       questionCount: paperType !== "structured" ? questionCount : undefined,
       durationMinutes,
+      examTitle: examTitle.trim() || undefined,
     };
     onGenerate(req);
   }
@@ -124,6 +126,17 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
           ))}
         </div>
       </fieldset>
+
+      <label className="field">
+        <span>Exam title</span>
+        <input
+          type="text"
+          maxLength={80}
+          placeholder="e.g. Term 3 End of Term Examination"
+          value={examTitle}
+          onChange={(e) => setExamTitle(e.target.value)}
+        />
+      </label>
 
       <label className="field">
         <span>Subject</span>
