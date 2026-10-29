@@ -29,7 +29,10 @@ function parseNumber(n: string): Parsed {
 
 type Sub = { roman: string; q: Question };
 type Letter = { letter: string; partStem: string | null; subs: Sub[] };
-type Main = { main: string; stem: string | null; letters: Letter[] };
+type Main = { main: string; stem: string | null; figure: Question["diagram"] | null; letters: Letter[] };
+
+// Questions whose figure is printed under the shared setting instead of inside their own row.
+const promoted = new WeakSet<Question>();
 
 function groupQuestions(questions: Question[]): Main[] {
   const mains: Main[] = [];
@@ -37,10 +40,12 @@ function groupQuestions(questions: Question[]): Main[] {
     const p = parseNumber(q.number);
     let main = mains[mains.length - 1];
     if (!main || main.main !== p.main) {
-      main = { main: p.main, stem: null, letters: [] };
+      main = { main: p.main, stem: null, figure: null, letters: [] };
       mains.push(main);
     }
     if (q.stem && !main.stem) main.stem = q.stem;
+    // A figure on the first part of a question belongs under the shared setting, as in printed papers.
+    if (q.diagram && main.stem && main.letters.length === 0) { main.figure = q.diagram; promoted.add(q); }
     let letter = main.letters[main.letters.length - 1];
     if (!letter || letter.letter !== p.letter || (!p.letter && !p.roman)) {
       letter = { letter: p.letter, partStem: null, subs: [] };
@@ -65,7 +70,7 @@ function QuestionBody({ q }: { q: Question }) {
   return (
     <div className="q-body">
       <p className="q-text"><MathText>{q.text}</MathText></p>
-      {q.diagram && <Diagram diagram={q.diagram} />}
+      {q.diagram && !promoted.has(q) && <Diagram diagram={q.diagram} />}
       {!q.diagram && q.diagramPlaceholder && <div className="diagram-missing">Diagram needed: draw or paste the figure here before printing.</div>}
       {q.options && (
         <ol className="options" type="A">
@@ -87,6 +92,7 @@ function MainQuestion({ m }: { m: Main }) {
       <span className="qm-num">{m.main}</span>
       <div className="qm-body">
         {m.stem && <p className="q-stem"><MathText>{m.stem}</MathText></p>}
+        {m.figure && <Diagram diagram={m.figure} />}
         {m.letters.map((l, li) => {
           const single = l.subs.length === 1 && !l.subs[0].roman;
           if (single) {

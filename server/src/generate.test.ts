@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { generatePaper, repairPaper } from "./generate.js";
+import { generatePaper, repairPaper, normalizeParts } from "./generate.js";
 import { mockPaper } from "./mock.js";
 import { paperSchema, validatePaper, type GenerateRequest } from "./schema.js";
 
@@ -256,5 +256,30 @@ describe("repairPaper", () => {
     assert.equal(q1.markingScheme.reduce((s, x) => s + x.marks, 0), q1.marks);
     assert.equal(q2.markingScheme[0].marks, q2.marks + 5);
     assert.equal(fixed.length, 1);
+  });
+});
+
+describe("normalizeParts", () => {
+  const mk = (number: string, text: string, extra: Record<string, unknown> = {}) => ({
+    number, text, marks: 2, markingScheme: [{ point: "x", marks: 2 }], ...extra,
+  });
+  it("removes copied labels, numbers the first sub-part (i) and splits a glued lead-in", () => {
+    const p = mockPaper(req);
+    p.sections[0].questions = [
+      mk("1(a)", "1(a)(i) Express 0,0000456 in standard form."),
+      mk("1(a)(ii)", "Write 30 507 correct to 3 significant figures."),
+      mk("2(a)", "Find the number of students who like: (i) Football only."),
+      mk("2(a)(ii)", "Both Football and Basketball."),
+      mk("3(a)", "3(a) Tinashe bought a bicycle."),
+    ] as never;
+    normalizeParts(p);
+    const q = p.sections[0].questions;
+    assert.equal(q[0].number, "1(a)(i)");
+    assert.equal(q[0].text, "Express 0,0000456 in standard form.");
+    assert.equal(q[2].number, "2(a)(i)");
+    assert.equal(q[2].partStem, "Find the number of students who like:");
+    assert.equal(q[2].text, "Football only.");
+    assert.equal(q[4].number, "3(a)");
+    assert.equal(q[4].text, "Tinashe bought a bicycle.");
   });
 });
