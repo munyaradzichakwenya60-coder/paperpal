@@ -2,7 +2,7 @@ import { z } from "zod";
 import { syllabus } from "./syllabus.js";
 
 export const levels = ["O-Level", "A-Level"] as const;
-export const paperTypes = ["structured", "multiple-choice", "mixed"] as const;
+export const paperTypes = ["structured", "multiple-choice", "mixed", "sectioned"] as const;
 export const difficulties = ["easier", "balanced", "harder"] as const;
 
 export const generateRequestSchema = z.object({
@@ -29,6 +29,9 @@ export const generateRequestSchema = z.object({
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["topics", i], message: `Unknown topic: ${topic}` });
     }
   });
+  if (req.paperType === "sectioned" && req.totalMarks !== SECTIONED_TOTAL_MARKS) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["totalMarks"], message: `A sectioned paper is out of ${SECTIONED_TOTAL_MARKS} marks.` });
+  }
   if (new Set(req.topics).size !== req.topics.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["topics"], message: "Topics must not repeat." });
   }
@@ -106,8 +109,46 @@ const circleDiagram = z.object({
   marks: z.array(z.object({ at: label, text: z.string().trim().min(1).max(12) })).max(6).nullish(),
 });
 
+
+const tableDiagram = z.object({
+  type: z.literal("table"),
+  /** Header cells (top row). */
+  headers: z.array(z.string().max(40)).min(1).max(9),
+  /** Body rows; every row should have as many cells as there are headers. Cells can use the maths text notation. */
+  rows: z.array(z.array(z.string().max(40)).max(9)).min(1).max(8),
+  /** When true the first cell of every row is a bold row label (as in a frequency table). */
+  rowLabels: z.boolean().nullish(),
+});
+
+const annulusDiagram = z.object({
+  type: z.literal("annulus"),
+  /** Dimension labels, e.g. "3,2 cm" for the inner diameter and "3,5 cm" for the outer. */
+  inner: z.string().trim().max(20),
+  outer: z.string().trim().max(20),
+});
+
+const inequalityDiagram = z.object({
+  type: z.literal("inequality"),
+  xMin: z.number().min(-20).max(20),
+  xMax: z.number().min(-20).max(20),
+  yMin: z.number().min(-20).max(20),
+  yMax: z.number().min(-20).max(20),
+  /** Boundary lines. The side that does NOT contain `inside` is hatched. */
+  lines: z.array(z.object({
+    from: z.tuple([coord, coord]),
+    to: z.tuple([coord, coord]),
+    dashed: z.boolean().nullish(),
+  })).min(1).max(4),
+  /** A point inside the wanted region R. */
+  inside: z.tuple([coord, coord]),
+  regionLabel: optLabel,
+  /** Labelled points such as corners, drawn with their coordinates. */
+  points: z.array(z.object({ x: coord, y: coord, label: z.string().trim().max(20) })).max(6).nullish(),
+}).refine((d) => d.xMax > d.xMin && d.yMax > d.yMin, { message: "Bad range." });
+
 export const diagramSchema = z.union([
   vennDiagram, triangleDiagram, numberLineDiagram, gridDiagram, barDiagram, circleDiagram,
+  tableDiagram, annulusDiagram, inequalityDiagram,
 ]);
 export type Diagram = z.infer<typeof diagramSchema>;
 
@@ -118,7 +159,11 @@ const markingPoint = z.object({
 
 const question = z.object({
   number: z.string().min(1),
-  text: z.string().min(5),
+  /** Introductory text printed once above the first part of a numbered question (e.g. the setting shared by 1(a) and 1(b)). */
+  stem: z.string().trim().max(1500).nullish(),
+  /** Introductory text printed above the sub-parts (i), (ii) of a lettered part such as 1(a). */
+  partStem: z.string().trim().max(1500).nullish(),
+  text: z.string().min(3),
   marks: z.number().int().min(1),
   answerLines: z.number().int().min(0).max(8).optional().nullable(),
   options: z.array(z.string().min(1)).length(4).optional().nullable(),
@@ -158,14 +203,53 @@ export type GeneratedPaper = Paper & {
 
 const needsDiagram = /\b(the (diagram|figure|graph|grid|number line|bar chart|circle)|(diagram|figure) (below|above|shows)|shown (below|above)|venn diagram)\b/i;
 
+export const SECTION_A_MARKS = 52;
+export const SECTION_B_QUESTIONS = 7;
+export const SECTION_B_MARKS_EACH = 12;
+export const SECTION_A_QUESTIONS = 5;
+/** Candidates answer all of Section A and any four questions of Section B. */
+export const SECTIONED_TOTAL_MARKS = SECTION_A_MARKS + 4 * SECTION_B_MARKS_EACH;
+
+/** "3(b)(ii)" -> "3". */
+export function mainNumber(n: string): string {
+  return n.trim().match(/^\d+/)?.[0] ?? n.trim();
+}
+
+function validateSectioned(paper: Paper): string[] {
+  const problems: string[] = [];
+  if (paper.sections.length !== 2) {
+    return [`A sectioned paper must have exactly two sections (Section A and Section B) but has ${paper.sections.length}.`];
+  }
+  const [a, b] = paper.sections;
+  const sumByMain = (qs: typeof a.questions) => {
+    const m = new Map<string, number>();
+    for (const q of qs) m.set(mainNumber(q.number), (m.get(mainNumber(q.number)) ?? 0) + q.marks);
+    return m;
+  };
+  const aMain = sumByMain(a.questions);
+  const aTotal = [...aMain.values()].reduce((x, y) => x + y, 0);
+  if (aMain.size !== SECTION_A_QUESTIONS) problems.push(`Section A must have exactly ${SECTION_A_QUESTIONS} numbered questions (1 to ${SECTION_A_QUESTIONS}) but has ${aMain.size}.`);
+  if (aTotal !== SECTION_A_MARKS) problems.push(`Section A marks add up to ${aTotal} but must total exactly ${SECTION_A_MARKS}.`);
+  const bMain = sumByMain(b.questions);
+  if (bMain.size !== SECTION_B_QUESTIONS) problems.push(`Section B must have exactly ${SECTION_B_QUESTIONS} numbered questions (${SECTION_A_QUESTIONS + 1} to ${SECTION_A_QUESTIONS + SECTION_B_QUESTIONS}) but has ${bMain.size}.`);
+  for (const [n, marks] of bMain) {
+    if (marks !== SECTION_B_MARKS_EACH) problems.push(`Section B question ${n} is worth ${marks} marks but every Section B question must be worth exactly ${SECTION_B_MARKS_EACH}.`);
+  }
+  return problems;
+}
+
 /** Checks the rules the AI output must follow. Returns a list of problems (empty = valid). */
 export function validatePaper(paper: Paper, req: GenerateRequest): string[] {
   const problems: string[] = [];
   const questions = paper.sections.flatMap((s) => s.questions);
 
-  const total = questions.reduce((sum, q) => sum + q.marks, 0);
-  if (total !== req.totalMarks) {
-    problems.push(`Question marks add up to ${total} but the paper must total exactly ${req.totalMarks}.`);
+  if (req.paperType === "sectioned") {
+    problems.push(...validateSectioned(paper));
+  } else {
+    const total = questions.reduce((sum, q) => sum + q.marks, 0);
+    if (total !== req.totalMarks) {
+      problems.push(`Question marks add up to ${total} but the paper must total exactly ${req.totalMarks}.`);
+    }
   }
 
   for (const q of questions) {
@@ -173,7 +257,7 @@ export function validatePaper(paper: Paper, req: GenerateRequest): string[] {
     if (schemeTotal !== q.marks) {
       problems.push(`Question ${q.number} is worth ${q.marks} marks but its marking scheme adds up to ${schemeTotal}.`);
     }
-    if (!q.diagram && needsDiagram.test(q.text)) {
+    if (!q.diagram && needsDiagram.test(`${q.stem ?? ""} ${q.partStem ?? ""} ${q.text}`)) {
       problems.push(`Question ${q.number} refers to a diagram, figure or Venn diagram but has no valid diagram object. Add one, or reword the question so it does not need one.`);
     }
     if (req.paperType === "multiple-choice" && !q.options) {

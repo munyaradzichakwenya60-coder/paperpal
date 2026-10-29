@@ -671,11 +671,6 @@ input[aria-invalid="true"] {
 }
 
 /* Print: only the sheet */
-@page {
-  size: A4;
-  margin: 0;
-}
-
 @media print {
   html,
   body {
@@ -696,7 +691,7 @@ input[aria-invalid="true"] {
   }
   .sheet {
     max-width: none;
-    padding: 16mm 18mm;
+    padding: 0;
     border: none;
   }
   .turn-over {
@@ -1081,4 +1076,80 @@ input[aria-invalid="true"] {
 .sign-out-btn:hover {
   color: var(--text);
   border-color: var(--text);
+}
+
+/* ── Paper layout modelled on a ZIMSEC question paper ─────────────────────── */
+.sheet .centred { text-align: center; }
+.part-heading.centred { border-bottom: 0; margin-bottom: 2px; font-size: 1rem; text-transform: none; letter-spacing: 0; }
+.part-note.centred { font-style: normal; margin-bottom: 18px; }
+
+/* Cover */
+.cover-subject-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin: 12px 0 16px;
+}
+.cover-subject { margin: 0; font-size: 1.5rem; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1.15; }
+.cover-paper { margin: 2px 0 0; font-size: 0.95rem; }
+.cover-time { display: flex; flex-direction: column; align-items: flex-end; font-family: var(--ui); font-size: 0.9rem; text-align: right; }
+.cover-materials { font-family: var(--ui); font-size: 0.8rem; line-height: 1.35; margin: 0 0 14px; }
+.cover-materials p { margin: 0; }
+.instructions-bold { font-weight: 700; margin: 4px 0 0; }
+.cover-pages { margin: 14px 0 0; font-weight: 700; text-align: center; font-size: 0.85rem; }
+.sheet-head.cover { break-after: page; }
+
+/* Numbered questions: main number, (a) letters, (i) sub-parts, marks at the right edge */
+.qmain {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr;
+  padding: 10px 0 14px;
+}
+.qm-num { font-family: var(--ui); font-weight: 700; font-size: 0.95rem; padding-top: 1px; }
+.qm-body { min-width: 0; }
+.q-stem { margin: 0 0 8px; max-width: 64ch; }
+.qrow {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr 2.6rem;
+  gap: 0 6px;
+  padding: 3px 0 8px;
+  break-inside: avoid;
+}
+.qrow .q-label { font-family: var(--ui); font-weight: 700; font-size: 0.88rem; padding-top: 2px; }
+.qrow .q-marks { text-align: right; }
+.qsub { padding-left: 0; }
+.qletter .qsub { grid-template-columns: 2.2rem 1fr 2.6rem; margin-left: 2.2rem; }
+.qletter .qsub .q-body { min-width: 0; }
+.qletter > .qrow:first-child { padding-bottom: 2px; }
+.q-text { margin: 0; max-width: 64ch; }
+
+/* Typeset maths */
+.m-frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.15; margin: 0 0.12em; font-size: 0.92em; }
+.m-frac .m-num { border-bottom: 1px solid currentColor; padding: 0 0.2em 1px; }
+.m-frac .m-den { padding: 1px 0.2em 0; }
+.m-sqrt { display: inline-flex; align-items: flex-end; }
+.m-radicand { border-top: 1px solid currentColor; padding: 0 0.15em; margin-left: -0.05em; }
+.m-mat { display: inline-grid; vertical-align: middle; margin: 0 0.2em; border-left: 1.5px solid currentColor; border-right: 1.5px solid currentColor; border-radius: 6px; padding: 0 0.3em; }
+.m-cell { padding: 0.05em 0.45em; text-align: center; }
+sup, sub { line-height: 0; font-size: 0.72em; }
+
+/* Table diagrams */
+.diagram-table { border-collapse: collapse; margin: 6px 0; font-size: 0.95em; }
+.diagram-table th, .diagram-table td { border: 1px solid var(--ink); padding: 4px 12px; text-align: center; min-width: 2.6rem; }
+.diagram-table th { font-weight: 600; }
+.diagram-table.row-labels tr > :first-child { font-weight: 700; text-align: left; }
+.diagram-table.row-labels thead th:first-child { font-style: italic; }
+.diagram-table { max-width: 100%; }
+.diagram:has(.diagram-table) { max-width: 100%; overflow-x: auto; }
+.diagram-annulus { max-width: 250px; }
+.diagram-inequality { max-width: 340px; }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 16mm 16mm;
+    @top-center { content: counter(page); font-family: Georgia, serif; font-size: 11pt; }
+  }
+  .sheet { padding: 0 !important; }
 }

@@ -20,7 +20,12 @@ const paperTypes: { value: PaperType; label: string }[] = [
   { value: "structured", label: "Structured questions" },
   { value: "multiple-choice", label: "Multiple choice" },
   { value: "mixed", label: "Mixed (MCQ + structured)" },
+  { value: "sectioned", label: "Sections A and B (ZIMSEC Paper 2 layout)" },
 ];
+
+/** A sectioned paper is always out of 100: Section A 52 marks plus any four of Section B (4 x 12). */
+const SECTIONED_TOTAL = 100;
+const SECTIONED_MINUTES = 150;
 
 export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditProfile, onSignOut }: Props) {
   const [level, setLevel] = useState<Level>("O-Level");
@@ -49,11 +54,15 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
       ? questionCount
       : paperType === "mixed"
         ? questionCount + structuredMarks
-        : totalMarks;
+        : paperType === "sectioned"
+          ? SECTIONED_TOTAL
+          : totalMarks;
 
   // Validation
   const marksOk =
-    paperType === "structured"
+    paperType === "sectioned"
+      ? true
+      : paperType === "structured"
       ? Number.isInteger(totalMarks) && totalMarks >= 10 && totalMarks <= 100
       : paperType === "multiple-choice"
         ? Number.isInteger(questionCount) && questionCount >= 10 && questionCount <= 80
@@ -90,7 +99,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
       paperType,
       difficulty,
       totalMarks: derivedTotal,
-      questionCount: paperType !== "structured" ? questionCount : undefined,
+      questionCount: paperType === "multiple-choice" || paperType === "mixed" ? questionCount : undefined,
       durationMinutes,
       examTitle: examTitle.trim() || undefined,
     };
@@ -171,7 +180,14 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
 
       <label className="field">
         <span>Paper type</span>
-        <select value={paperType} onChange={(e) => setPaperType(e.target.value as PaperType)}>
+        <select
+          value={paperType}
+          onChange={(e) => {
+            const next = e.target.value as PaperType;
+            setPaperType(next);
+            if (next === "sectioned") setDurationMinutes(SECTIONED_MINUTES);
+          }}
+        >
           {paperTypes.map((p) => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
@@ -214,6 +230,25 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
             {!timeOk && <em className="hint">Use 15 to 240.</em>}
           </label>
         </div>
+      )}
+
+      {paperType === "sectioned" && (
+        <>
+          <p className="note" style={{ marginTop: 0 }}>
+            Section A: 5 compulsory questions, 52 marks. Section B: 7 questions of 12 marks, candidates answer any 4.
+            Out of {SECTIONED_TOTAL} marks.
+          </p>
+          <label className="field">
+            <span>Time (minutes)</span>
+            <input
+              type="number" min={15} max={240}
+              value={durationMinutes}
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              aria-invalid={!timeOk}
+            />
+            {!timeOk && <em className="hint">Use 15 to 240.</em>}
+          </label>
+        </>
       )}
 
       {paperType === "multiple-choice" && (
