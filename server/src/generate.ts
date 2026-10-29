@@ -101,14 +101,20 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
       } catch (err) {
         lastError = err;
         if (!(err instanceof GenerationError)) throw err;
-        // Out of quota, busy or down: go straight to the backup provider if there is one.
-        if (hasBackup) {
-          console.error(`${provider} failed, trying ${chain[index + 1]}:`, err.message);
+        // "High demand" and rate limits usually clear in seconds, so retry the same provider a couple
+        // of times before giving up on it. A bad key or model name will not fix itself.
+        // Out of quota is the exception: waiting will not help, so switch to the backup straight away.
+        if (err.quota && hasBackup) {
+          console.error(`${provider} out of quota, trying ${chain[index + 1]}:`, err.message);
           break;
         }
-        // A bad key or model name will not fix itself, so only temporary errors are retried.
-        if (!err.retryable || attempt === MAX_ATTEMPTS) break;
-        continue;
+        if (err.retryable && attempt < MAX_ATTEMPTS) {
+          console.error(`[${provider} attempt ${attempt}] busy, retrying shortly:`, err.message);
+          await new Promise((r) => setTimeout(r, attempt * 4_000));
+          continue;
+        }
+        if (hasBackup) console.error(`${provider} failed, trying ${chain[index + 1]}:`, err.message);
+        break;
       }
 
       try {

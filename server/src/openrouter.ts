@@ -41,14 +41,21 @@ export async function callOpenRouter(prompt: string, timeoutMs = 40_000): Promis
         ? "The AI service is busy right now. Please try again in a moment."
         : `The AI service rejected the request (status ${res.status}). Check the API key and model name.`,
       temporary,
+      res.status === 429,
     );
   }
 
-  const data = (await res.json()) as {
+  let data: {
     choices?: { message?: { content?: string } }[];
     error?: { message?: string };
     usage?: { prompt_tokens?: number; completion_tokens?: number; completion_tokens_details?: { reasoning_tokens?: number } };
   };
+  try {
+    data = await res.json();
+  } catch (err) {
+    console.error("openrouter body read failed:", (err as Error).message);
+    throw new GenerationError("The AI service took too long to answer. Please try again.", true);
+  }
   // OpenRouter sometimes answers 200 with an error object (e.g. upstream provider limits).
   if (data.error) {
     console.error(`openrouter in-body error (${model}):`, data.error.message);
