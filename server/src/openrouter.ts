@@ -1,9 +1,9 @@
-import { GenerationError } from "./gemini.js";
+import { GenerationError, type AiReply } from "./gemini.js";
 
 const DEFAULT_MODEL = "nvidia/nemotron-3.5-super-vl:free";
 
 /** Sends one prompt to OpenRouter (OpenAI-compatible chat completions) and returns the raw text (expected to be JSON). */
-export async function callOpenRouter(prompt: string, timeoutMs = 40_000): Promise<string> {
+export async function callOpenRouter(prompt: string, timeoutMs = 40_000): Promise<AiReply> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) throw new GenerationError("No OpenRouter API key is configured on the server.");
   const model = (process.env.OPENROUTER_MODEL || DEFAULT_MODEL).replace(/["'\s]/g, "");
@@ -47,6 +47,7 @@ export async function callOpenRouter(prompt: string, timeoutMs = 40_000): Promis
   const data = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
     error?: { message?: string };
+    usage?: { prompt_tokens?: number; completion_tokens?: number; completion_tokens_details?: { reasoning_tokens?: number } };
   };
   // OpenRouter sometimes answers 200 with an error object (e.g. upstream provider limits).
   if (data.error) {
@@ -55,5 +56,10 @@ export async function callOpenRouter(prompt: string, timeoutMs = 40_000): Promis
   }
   const text = data.choices?.[0]?.message?.content ?? "";
   if (!text) throw new GenerationError("The AI service returned an empty answer. Try again.", true);
-  return text;
+  const u = data.usage;
+  const thinking = u?.completion_tokens_details?.reasoning_tokens ?? 0;
+  return {
+    text,
+    usage: { promptTokens: u?.prompt_tokens ?? 0, outputTokens: Math.max(0, (u?.completion_tokens ?? 0) - thinking), thinkingTokens: thinking },
+  };
 }
