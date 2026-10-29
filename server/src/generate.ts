@@ -25,29 +25,33 @@ export function activeProvider(): Provider | "mock" {
   return providerChain()[0] ?? "mock";
 }
 
-function callProvider(provider: Provider, prompt: string, timeoutMs: number): Promise<AiReply> {
-  return provider === "openrouter" ? callOpenRouter(prompt, timeoutMs) : callGemini(prompt, timeoutMs);
+function callProvider(provider: Provider, prompt: string, timeoutMs: number, model?: string): Promise<AiReply> {
+  return provider === "openrouter" ? callOpenRouter(prompt, timeoutMs) : callGemini(prompt, timeoutMs, model);
 }
+
+/** When the main Gemini model is overloaded, a lighter sibling model usually still answers. Set GEMINI_FALLBACK_MODEL="" to turn this off. */
+const fallbackModel = () => (process.env.GEMINI_FALLBACK_MODEL ?? "gemini-2.5-flash-lite").replace(/["'\s]/g, "");
 
 function stripFences(text: string): string {
   return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
 }
 
-// USD per 1M tokens (input, output) as listed by Google for Gemini 2.5 Flash. Override with GEMINI_PRICE_IN / GEMINI_PRICE_OUT.
-const PRICE_IN = Number(process.env.GEMINI_PRICE_IN) || 0.3;
-const PRICE_OUT = Number(process.env.GEMINI_PRICE_OUT) || 2.5;
+// USD per 1M tokens (input, output) as listed by Google. Flash-Lite is the fallback model. Override the main model's prices with GEMINI_PRICE_IN / GEMINI_PRICE_OUT.
+const priceFor = (model?: string): [number, number] =>
+  /lite/i.test(model ?? "") ? [0.1, 0.4] : [Number(process.env.GEMINI_PRICE_IN) || 0.3, Number(process.env.GEMINI_PRICE_OUT) || 2.5];
 
-type Tally = Usage & { calls: number };
-const emptyTally = (): Tally => ({ calls: 0, promptTokens: 0, outputTokens: 0, thinkingTokens: 0 });
+type Tally = Usage & { calls: number; costUsd: number };
+const emptyTally = (): Tally => ({ calls: 0, promptTokens: 0, outputTokens: 0, thinkingTokens: 0, costUsd: 0 });
 
 /** Estimated cost; only meaningful for Gemini paid pricing. OpenRouter free models cost nothing. */
 function costUsd(t: Tally, provider: Provider | "mock"): number | null {
   if (provider !== "gemini") return null;
-  return Number(((t.promptTokens * PRICE_IN + (t.outputTokens + t.thinkingTokens) * PRICE_OUT) / 1_000_000).toFixed(5));
+  return Number(t.costUsd.toFixed(5));
 }
 
 function withMeta(paper: Paper, req: GenerateRequest, provider: Provider | "mock", tally: Tally = emptyTally()): GeneratedPaper {
-  const usage = { ...tally, estimatedCostUsd: costUsd(tally, provider) };
+  const { costUsd: _c, ...counts } = tally;
+  const usage = { ...counts, estimatedCostUsd: costUsd(tally, provider) };
   if (provider !== "mock") {
     console.log(`[usage] ${provider} ${req.subject} ${req.paperType} ${req.questionCount ?? "?"}q calls=${usage.calls} in=${usage.promptTokens} out=${usage.outputTokens} think=${usage.thinkingTokens} cost=$${usage.estimatedCostUsd ?? "n/a"}`);
   }
@@ -158,6 +162,8 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
   let feedback = "";
   let lastError: unknown = null;
   const tally = emptyTally();
+  let model: string | undefined;
+  let usedFallback = false;
 
   for (const [index, provider] of chain.entries()) {
     const hasBackup = index < chain.length - 1;
@@ -167,12 +173,14 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
 
       let text = "";
       try {
-        const reply = await callProvider(provider, buildPrompt(req, feedback), Math.min(MAX_ATTEMPT_MS, remaining));
+        const reply = await callProvider(provider, buildPrompt(req, feedback), Math.min(MAX_ATTEMPT_MS, remaining), model);
         text = reply.text;
         tally.calls += 1;
         tally.promptTokens += reply.usage.promptTokens;
         tally.outputTokens += reply.usage.outputTokens;
         tally.thinkingTokens += reply.usage.thinkingTokens;
+        const [pin, pout] = priceFor(reply.model);
+        tally.costUsd += (reply.usage.promptTokens * pin + (reply.usage.outputTokens + reply.usage.thinkingTokens) * pout) / 1_000_000;
       } catch (err) {
         lastError = err;
         if (!(err instanceof GenerationError)) throw err;
@@ -182,6 +190,13 @@ export async function generatePaper(req: GenerateRequest): Promise<GeneratedPape
         if (err.quota && hasBackup) {
           console.error(`${provider} out of quota, trying ${chain[index + 1]}:`, err.message);
           break;
+        }
+        // Still busy after one retry: try the lighter Gemini model right away instead of waiting longer.
+        if (provider === "gemini" && err.retryable && !usedFallback && attempt >= 2 && fallbackModel()) {
+          model = fallbackModel();
+          usedFallback = true;
+          console.error(`gemini busy, switching to ${model}:`, err.message);
+          continue;
         }
         if (err.retryable && attempt < MAX_ATTEMPTS) {
           console.error(`[${provider} attempt ${attempt}] busy, retrying shortly:`, err.message);

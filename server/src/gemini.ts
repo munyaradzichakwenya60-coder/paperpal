@@ -9,13 +9,13 @@ const DEFAULT_MODEL = "gemini-2.5-flash";
 
 /** Token counts the provider reports for one call. Thinking tokens are billed as output. */
 export type Usage = { promptTokens: number; outputTokens: number; thinkingTokens: number };
-export type AiReply = { text: string; usage: Usage };
+export type AiReply = { text: string; usage: Usage; model?: string };
 
 /** Sends one prompt to the Gemini API and returns the raw text (expected to be JSON). */
-export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<AiReply> {
+export async function callGemini(prompt: string, timeoutMs = 40_000, modelOverride?: string): Promise<AiReply> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new GenerationError("No Gemini API key is configured on the server.");
-  const model = (process.env.GEMINI_MODEL || DEFAULT_MODEL).replace(/["'\s]/g, "");
+  const model = (modelOverride || process.env.GEMINI_MODEL || DEFAULT_MODEL).replace(/["'\s]/g, "");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
   let res: Response;
@@ -65,6 +65,7 @@ export async function callGemini(prompt: string, timeoutMs = 40_000): Promise<Ai
   const u = data.usageMetadata;
   return {
     text,
+    model,
     usage: { promptTokens: u?.promptTokenCount ?? 0, outputTokens: u?.candidatesTokenCount ?? 0, thinkingTokens: u?.thoughtsTokenCount ?? 0 },
   };
 }
