@@ -24,6 +24,7 @@ function withMeta(paper: Paper, req: GenerateRequest, provider: "gemini" | "mock
       paperType: req.paperType,
       durationMinutes: req.durationMinutes,
       totalMarks: req.totalMarks,
+      examTitle: req.examTitle,
       provider,
       generatedAt: new Date().toISOString(),
     },

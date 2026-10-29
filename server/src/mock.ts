@@ -23,16 +23,19 @@ export function mockPaper(req: GenerateRequest): Paper {
         marks: pm,
       })),
     };
+    if (i === 0 && !multipleChoice) {
+      return {
+        ...base,
+        text: base.text + " (Sample diagram below.)",
+        diagram: { type: "venn" as const, sets: ["A", "B"], counts: [null, null, null, null] },
+      };
+    }
     return multipleChoice ? { ...base, options: ["A", "B", "C", "D"].map((l) => `Option ${l}`) } : base;
   });
 
   return {
-    title: `${req.subject} ${req.level} practice paper`,
-    instructions: [
-      "Answer all questions.",
-      "Show all working clearly.",
-      `The marks for each question are shown in brackets on the right.`,
-    ],
+    title: "",
+    instructions: [],
     sections: [{ title: "Section A", questions }],
   };
 }

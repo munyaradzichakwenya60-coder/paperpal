@@ -438,6 +438,61 @@ input[aria-invalid="true"] {
   margin: 0 0 10px;
 }
 
+/* Cover extras */
+.sheet-exam.blank { color: #555; font-weight: 400; }
+.cover-level {
+  text-align: center;
+  font-family: var(--ui);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 14px 0 0;
+}
+.cover-note {
+  font-family: var(--ui);
+  font-size: 0.85rem;
+  margin: 0 0 6px;
+}
+
+/* Grouped questions: main number, then (a) (b) (c) parts */
+.qgroup {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr;
+  gap: 0 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.qgroup:last-child { border-bottom: 0; }
+.qg-num {
+  font-family: var(--ui);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding-top: 2px;
+}
+.qg-parts { min-width: 0; }
+.qpart {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  gap: 0 6px;
+  padding: 4px 0 10px;
+  break-inside: avoid;
+}
+.qp-label {
+  font-family: var(--ui);
+  font-size: 0.9rem;
+  padding-top: 2px;
+}
+
+/* Diagrams */
+.diagram {
+  margin: 10px 0 6px;
+  max-width: 340px;
+  break-inside: avoid;
+}
+.diagram svg { display: block; width: 100%; height: auto; }
+.diagram-bar, .diagram-numberline { max-width: 400px; }
+.diagram-grid { max-width: 420px; }
+
 /* Questions */
 .questions {
   list-style: none;
@@ -616,6 +671,11 @@ input[aria-invalid="true"] {
 }
 
 /* Print: only the sheet */
+@page {
+  size: A4;
+  margin: 0;
+}
+
 @media print {
   html,
   body {
@@ -636,7 +696,7 @@ input[aria-invalid="true"] {
   }
   .sheet {
     max-width: none;
-    padding: 0;
+    padding: 16mm 18mm;
     border: none;
   }
   .turn-over {
