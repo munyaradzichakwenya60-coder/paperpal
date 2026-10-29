@@ -57,6 +57,20 @@ export type Diagram =
       points?: { x: number; y: number; label: string }[] | null;
     }
   | {
+      type: "solid"; shape: "cylinder" | "cone" | "sphere" | "hemisphere" | "cuboid" | "pyramid" | "prism";
+      radius?: string | null; diameter?: string | null; height?: string | null; slantHeight?: string | null;
+      length?: string | null; width?: string | null; base?: string | null;
+    }
+  | {
+      type: "bearing"; origin: string;
+      legs: { to: string; bearing: number; length?: number | null; distance?: string | null; bearingLabel?: string | null }[];
+    }
+  | {
+      type: "graph"; xMin: number; xMax: number; yMin: number; yMax: number; xStep?: number | null; yStep?: number | null;
+      curves?: { expr: string; label?: string | null; dashed?: boolean | null }[] | null;
+      points?: { x: number; y: number; label?: string | null }[] | null;
+    }
+  | {
       type: "circle"; centre?: string | null; points: string[];
       chords?: [string, string][] | null; radii?: string[] | null; marks?: { at: string; text: string }[] | null;
     };

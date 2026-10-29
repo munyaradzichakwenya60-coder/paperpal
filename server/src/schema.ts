@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compileExpr } from "./mathexpr.js";
 import { syllabus } from "./syllabus.js";
 
 export const levels = ["O-Level", "A-Level"] as const;
@@ -146,9 +147,65 @@ const inequalityDiagram = z.object({
   points: z.array(z.object({ x: coord, y: coord, label: z.string().trim().max(20) })).max(6).nullish(),
 }).refine((d) => d.xMax > d.xMin && d.yMax > d.yMin, { message: "Bad range." });
 
+const solidDiagram = z.object({
+  type: z.literal("solid"),
+  shape: z.enum(["cylinder", "cone", "sphere", "hemisphere", "cuboid", "pyramid", "prism"]),
+  /** Dimension labels such as "5 cm" or "h". Only the ones the question gives are drawn. */
+  radius: optLabel,
+  diameter: optLabel,
+  height: optLabel,
+  slantHeight: optLabel,
+  length: optLabel,
+  width: optLabel,
+  base: optLabel,
+});
+
+const bearingDiagram = z.object({
+  type: z.literal("bearing"),
+  /** Label of the starting point, e.g. "P". */
+  origin: label,
+  /** A journey of up to four legs. Each leg is drawn at its true bearing, with a north line at its start. */
+  legs: z.array(z.object({
+    to: label,
+    /** Bearing in degrees clockwise from north, 0 to 360. */
+    bearing: z.number().min(0).max(360),
+    /** Relative length for drawing only (default 1). */
+    length: z.number().min(0.2).max(5).nullish(),
+    distance: optLabel,
+    /** Text written on the bearing angle, e.g. "x" or "125°". Defaults to the bearing; "" hides it. */
+    bearingLabel: z.string().trim().max(10).nullish(),
+  })).min(1).max(4),
+});
+
+const exprOk = (s: string): boolean => {
+  try {
+    const f = compileExpr(s);
+    let finite = 0;
+    for (const x of [-3, -2, -1, -0.5, 0.5, 1, 2, 3, 4]) if (Number.isFinite(f(x))) finite++;
+    return finite >= 3;
+  } catch { return false; }
+};
+
+const graphDiagram = z.object({
+  type: z.literal("graph"),
+  xMin: z.number().min(-60).max(60),
+  xMax: z.number().min(-60).max(60),
+  yMin: z.number().min(-60).max(60),
+  yMax: z.number().min(-60).max(60),
+  xStep: z.number().positive().nullish(),
+  yStep: z.number().positive().nullish(),
+  /** Curves and lines given as formulas in x, e.g. "2x^2 - 3x + 1", "12/x", "x + 2". */
+  curves: z.array(z.object({
+    expr: z.string().trim().min(1).max(60).refine(exprOk, { message: "Unreadable formula." }),
+    label: optLabel,
+    dashed: z.boolean().nullish(),
+  })).max(3).nullish(),
+  points: z.array(z.object({ x: coord, y: coord, label: optLabel })).max(8).nullish(),
+}).refine((d) => d.xMax > d.xMin && d.yMax > d.yMin && d.xMax - d.xMin <= 80 && d.yMax - d.yMin <= 80, { message: "Bad graph range." });
+
 export const diagramSchema = z.union([
   vennDiagram, triangleDiagram, numberLineDiagram, gridDiagram, barDiagram, circleDiagram,
-  tableDiagram, annulusDiagram, inequalityDiagram,
+  tableDiagram, annulusDiagram, inequalityDiagram, solidDiagram, bearingDiagram, graphDiagram,
 ]);
 export type Diagram = z.infer<typeof diagramSchema>;
 
