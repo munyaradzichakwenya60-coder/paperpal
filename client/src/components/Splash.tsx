@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 const KEY = "paperpal-splash-seen";
-const SHOW_MS = 2300;
+const SHOW_MS = 3000;
 
 function alreadySeen() {
   try {
@@ -44,10 +44,13 @@ export function Splash({ children }: { children: ReactNode }) {
             <path className="splash-line" d="M19 44h12" />
             <path className="splash-tick" d="M32 48l6 6 12-14" />
           </svg>
+          <svg className="splash-swoosh" viewBox="0 0 220 26" aria-hidden="true">
+            <path d="M6 20 C 60 22, 150 14, 214 4" />
+          </svg>
           <h1 className="splash-name">
             Paper<span>Pal</span>
           </h1>
-          <p className="splash-tag">Exam papers and marking schemes, done.</p>
+          <p className="splash-tag">Exam papers. Marking schemes. Done.</p>
           <div className="splash-bar" />
         </div>
       )}
