@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Splash } from "./components/Splash";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthCallbackPage } from "./pages/AuthCallbackPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -14,6 +15,7 @@ import "./styles.css";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ErrorBoundary>
+      <Splash>
       <BrowserRouter>
         <AuthProvider>
           <Routes>
@@ -46,6 +48,7 @@ createRoot(document.getElementById("root")!).render(
           </Routes>
         </AuthProvider>
       </BrowserRouter>
+      </Splash>
     </ErrorBoundary>
   </StrictMode>,
 );

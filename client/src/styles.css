@@ -1,10 +1,14 @@
 :root {
-  --desk: #f5f4f0;
-  --panel: #edecea;
-  --field: #e4e2de;
-  --line: #d0cdc8;
-  --text: #1a1a1a;
-  --muted: #6b6860;
+  --brand: #0f6b5c;
+  --brand-dark: #0a4d42;
+  --brand-soft: #dcefe9;
+  --accent: #f2a93b;
+  --desk: #eef4f1;
+  --panel: #e4eeea;
+  --field: #f6faf8;
+  --line: #c3d6cf;
+  --text: #17231f;
+  --muted: #5b6b66;
   --paper: #ffffff;
   --ink: #111111;
   --rule: #c9c9c9;
@@ -19,6 +23,22 @@
   box-sizing: border-box;
 }
 
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--brand) transparent;
+}
+
+/* Inner scroll areas still scroll (wheel, touch, keys) but draw no bar */
+.panel,
+.topics {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.panel::-webkit-scrollbar,
+.topics::-webkit-scrollbar {
+  display: none;
+}
+
 html,
 body {
   margin: 0;
@@ -30,7 +50,7 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid #111111;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -65,9 +85,19 @@ body {
 /* Panel */
 .brand {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 1.6rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.01em;
+  color: var(--brand);
+}
+
+.logo-mark {
+  width: 1.5em;
+  height: 1.5em;
+  flex: none;
 }
 
 .tagline {
@@ -158,7 +188,7 @@ input[aria-invalid="true"] {
 
 .segmented label.on,
 .segmented button.on {
-  background: #111111;
+  background: var(--brand);
   color: #ffffff;
   font-weight: 500;
 }
@@ -170,7 +200,7 @@ input[aria-invalid="true"] {
 }
 
 .segmented label:has(input:focus-visible) {
-  outline: 2px solid #111111;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 
@@ -204,14 +234,14 @@ input[aria-invalid="true"] {
 }
 
 .topic input {
-  accent-color: #111111;
+  accent-color: var(--brand);
   width: 16px;
   height: 16px;
   margin: 0;
 }
 
 .generate {
-  background: #111111;
+  background: var(--brand);
   color: #ffffff;
   border: 0;
   border-radius: 6px;
@@ -220,6 +250,8 @@ input[aria-invalid="true"] {
   font-weight: 600;
   cursor: pointer;
 }
+
+.generate:hover:not(:disabled), .btn-primary:hover:not(:disabled) { background: var(--brand-dark); }
 
 .generate:disabled {
   background: var(--line);
@@ -294,7 +326,7 @@ input[aria-invalid="true"] {
 }
 
 .ghost:hover {
-  border-color: #111111;
+  border-color: var(--brand);
 }
 
 /* ── The paper sheet ──────────────────────────────────────────────────────── */
@@ -853,6 +885,7 @@ input[aria-invalid="true"] {
 /* ── Auth pages ──────────────────────────────────────────────────────────────── */
 
 .auth-page {
+  background-image: radial-gradient(circle at 15% 10%, #d3ebe3 0, transparent 45%), radial-gradient(circle at 90% 90%, #fbe8c6 0, transparent 40%);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -862,10 +895,12 @@ input[aria-invalid="true"] {
 }
 
 .auth-card {
+  box-shadow: 0 10px 30px rgba(15, 107, 92, 0.1);
   width: 100%;
   max-width: 420px;
   background: var(--panel);
   border: 1px solid var(--line);
+  border-top: 4px solid var(--brand);
   border-radius: 12px;
   padding: 40px 36px;
   display: flex;
@@ -874,10 +909,13 @@ input[aria-invalid="true"] {
 }
 
 .auth-brand {
-  margin: 0;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: 1.8rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--brand);
   text-align: center;
   letter-spacing: -0.02em;
 }
@@ -922,7 +960,7 @@ input[aria-invalid="true"] {
 .auth-field input:focus,
 .auth-field select:focus {
   outline: none;
-  border-color: var(--ink);
+  border-color: var(--brand);
 }
 
 .auth-error {
@@ -982,7 +1020,7 @@ input[aria-invalid="true"] {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: var(--ink);
+  background: var(--brand);
   color: #ffffff;
   border: 0;
   border-radius: 7px;
@@ -1159,3 +1197,45 @@ sup, sub { line-height: 0; font-size: 0.72em; }
 
 .diagram-solid, .diagram-bearing { max-width: 320px; }
 .diagram-graph { max-width: 400px; }
+
+
+/* ── Splash screen ─────────────────────────────────────────────────────────── */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(circle at 50% 40%, #12806e 0, var(--brand) 45%, var(--brand-dark) 100%);
+  color: #fff;
+  transition: opacity 0.5s ease, transform 0.5s ease, visibility 0.5s;
+}
+.splash.leaving { opacity: 0; transform: scale(1.04); visibility: hidden; }
+
+.splash-mark { width: 112px; height: 112px; animation: splash-pop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.splash-sheet { fill: #fff; }
+.splash-fold { fill: #cfe6df; }
+.splash-line { stroke: var(--brand); stroke-width: 4; stroke-linecap: round; fill: none; stroke-dasharray: 60; stroke-dashoffset: 60; animation: splash-draw 0.6s ease forwards; }
+.splash-line:nth-of-type(1) { animation-delay: 0.45s; }
+.splash-line:nth-of-type(2) { animation-delay: 0.65s; }
+.splash-line:nth-of-type(3) { animation-delay: 0.85s; }
+.splash-tick { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 50; stroke-dashoffset: 50; animation: splash-draw 0.5s ease 1.1s forwards; }
+
+.splash-name { margin: 0; font-size: 2.4rem; font-weight: 700; letter-spacing: -0.02em; animation: splash-rise 0.6s ease 0.5s both; }
+.splash-name span { color: var(--accent); }
+.splash-tag { margin: -12px 0 0; font-size: 0.98rem; opacity: 0.85; animation: splash-rise 0.6s ease 0.75s both; }
+.splash-bar { width: 140px; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.25); overflow: hidden; }
+.splash-bar::after { content: ""; display: block; height: 100%; background: var(--accent); transform: translateX(-100%); animation: splash-load 1.7s ease-in-out 0.2s forwards; }
+
+@keyframes splash-pop { from { opacity: 0; transform: scale(0.6) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes splash-draw { to { stroke-dashoffset: 0; } }
+@keyframes splash-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 0.999; transform: none; } }
+@keyframes splash-load { to { transform: translateX(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .splash *, .splash::after { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+}
+@media print { .splash { display: none; } }
