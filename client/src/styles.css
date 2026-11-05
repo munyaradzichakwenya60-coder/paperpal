@@ -135,14 +135,39 @@ legend small {
 }
 
 select,
+textarea,
+input[type="text"],
 input[type="number"] {
   width: 100%;
-  background: var(--field);
+  background: #ffffff;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 10px 12px;
   font: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input[type="text"]::placeholder,
+textarea::placeholder {
+  color: #8a96a1;
+}
+
+select:hover,
+textarea:hover,
+input[type="text"]:hover,
+input[type="number"]:hover {
+  border-color: #a9b4bd;
+}
+
+select:focus,
+textarea:focus,
+input[type="text"]:focus,
+input[type="number"]:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(11, 52, 82, 0.14);
 }
 
 input[aria-invalid="true"] {
