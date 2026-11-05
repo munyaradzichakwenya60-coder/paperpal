@@ -1227,7 +1227,6 @@ sup, sub { line-height: 0; font-size: 0.72em; }
 /* Sequence: the two Ps slide in and snap together, the mark lifts, a gold swoosh
    sweeps in, then the letters rise and snap into place. */
 .splash {
-  --k: 1.45;
   position: fixed;
   inset: 0;
   z-index: 1000;

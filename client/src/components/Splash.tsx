@@ -3,8 +3,6 @@ import { PP_A, PP_B, PP_H, PP_W } from "./ppPaths";
 
 const KEY = "paperpal-splash-seen";
 const REDUCED = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const SHOW_MS = REDUCED ? 900 : 7600;
-
 function alreadySeen() {
   try {
     return sessionStorage.getItem(KEY) === "1";
@@ -13,10 +11,15 @@ function alreadySeen() {
   }
 }
 
+// First load of a session gets the full sequence; later loads get a quick version.
+const QUICK = alreadySeen();
+const K = QUICK ? 0.6 : 1.45;
+const SHOW_MS = REDUCED ? 900 : QUICK ? 3500 : 7600;
+
 const LETTERS = ["P", "a", "p", "e", "r", "P", "a", "l"];
 
 export function Splash({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<"show" | "leaving" | "done">(alreadySeen() ? "done" : "show");
+  const [phase, setPhase] = useState<"show" | "leaving" | "done">("show");
 
   useEffect(() => {
     if (phase !== "show") return;
@@ -45,6 +48,7 @@ export function Splash({ children }: { children: ReactNode }) {
           className={`splash${phase === "leaving" ? " leaving" : ""}`}
           role="status"
           aria-label="Loading PaperPal"
+          style={{ ["--k" as string]: K }}
           onClick={() => phase === "show" && setPhase("leaving")}
         >
           <div className="splash-stage">
@@ -58,7 +62,7 @@ export function Splash({ children }: { children: ReactNode }) {
             </svg>
             <h1 className="sp-word" aria-label="PaperPal">
               {LETTERS.map((l, i) => (
-                <span key={i} className={i > 4 ? "gold" : ""} style={{ animationDelay: `${(3.1 + i * 0.11) * 1.45}s` }}>
+                <span key={i} className={i > 4 ? "gold" : ""} style={{ animationDelay: `${(3.1 + i * 0.11) * K}s` }}>
                   {l}
                 </span>
               ))}
