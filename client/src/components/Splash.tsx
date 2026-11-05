@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 const KEY = "paperpal-splash-seen";
 const REDUCED = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const SHOW_MS = REDUCED ? 900 : 4700;
+const SHOW_MS = REDUCED ? 900 : 6800;
 
 function alreadySeen() {
   try {
@@ -38,7 +38,7 @@ export function Splash({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {children}
+      <div style={phase === "done" ? undefined : { visibility: "hidden" }}>{children}</div>
       {phase !== "done" && (
         <div
           className={`splash${phase === "leaving" ? " leaving" : ""}`}
@@ -69,7 +69,7 @@ export function Splash({ children }: { children: ReactNode }) {
             {/* 4. letters rise and snap into place */}
             <h1 className="sp-word" aria-label="PaperPal">
               {LETTERS.map((l, i) => (
-                <span key={i} className={i > 4 ? "gold" : ""} style={{ animationDelay: `${2.55 + i * 0.09}s` }}>
+                <span key={i} className={i > 4 ? "gold" : ""} style={{ animationDelay: `${(2.55 + i * 0.11) * 1.45}s` }}>
                   {l}
                 </span>
               ))}
