@@ -1200,44 +1200,86 @@ sup, sub { line-height: 0; font-size: 0.72em; }
 
 
 /* ── Splash screen ─────────────────────────────────────────────────────────── */
+/* Sequence: paper drops on a light flash, flips to navy and breaks apart, gold
+   blobs swirl into a swoosh, then the letters rise and snap into place. */
 .splash {
   position: fixed;
   inset: 0;
   z-index: 1000;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
-  background: radial-gradient(circle at 50% 45%, #0f4468 0, var(--brand) 50%, var(--brand-dark) 100%);
-  color: #fff;
+  background: var(--brand);
+  animation: sp-bg 4.7s steps(1, end) forwards;
+  cursor: pointer;
   transition: opacity 0.55s ease, transform 0.55s ease, visibility 0.55s;
 }
 .splash.leaving { opacity: 0; transform: scale(1.05); visibility: hidden; }
 
-.splash-mark { width: 120px; height: 120px; overflow: visible; animation: splash-pop 0.8s cubic-bezier(0.2, 0.9, 0.3, 1.15) both; }
-.splash-sheet { fill: #fff; }
-.splash-fold { fill: #b8c4cf; }
-.splash-line { stroke: var(--brand); stroke-width: 4; stroke-linecap: round; fill: none; stroke-dasharray: 60; stroke-dashoffset: 60; animation: splash-draw 0.5s ease forwards; }
-.splash-line:nth-of-type(1) { animation-delay: 0.5s; }
-.splash-line:nth-of-type(2) { animation-delay: 0.65s; }
-.splash-line:nth-of-type(3) { animation-delay: 0.8s; }
-.splash-tick { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 50; stroke-dashoffset: 50; animation: splash-draw 0.45s ease 1s forwards; }
+.splash-stage { position: relative; width: 340px; height: 260px; max-width: 92vw; }
 
-/* gold swoosh sweeps in under the mark, then the name is revealed by a wipe */
-.splash-swoosh { width: 220px; height: 26px; margin-top: -8px; overflow: visible; }
-.splash-swoosh path { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 260; stroke-dashoffset: 260; animation: splash-draw 0.9s cubic-bezier(0.6, 0, 0.2, 1) 1.15s forwards; }
+.splash-stage > * { position: absolute; }
 
-.splash-name { margin: 0; font-size: 2.6rem; font-weight: 700; letter-spacing: 0.02em; clip-path: inset(0 100% 0 0); animation: splash-wipe 0.8s cubic-bezier(0.7, 0, 0.2, 1) 1.5s forwards; }
-.splash-name span { color: var(--accent); }
-.splash-tag { margin: -6px 0 0; font-size: 0.8rem; letter-spacing: 0.28em; text-transform: uppercase; color: #c3ccd5; opacity: 0; animation: splash-rise 0.6s ease 2.05s forwards; }
+/* paper */
+.sp-paper { left: 115px; top: 40px; width: 110px; height: 110px; overflow: visible; opacity: 0; animation: sp-drop 0.85s cubic-bezier(0.3, 0.7, 0.4, 1) 0.15s forwards; }
+.sp-body { fill: var(--brand); animation: sp-recolor 4.7s steps(1, end) forwards; transform-box: fill-box; transform-origin: center; }
+.sp-body path { animation: sp-recolor-fold 4.7s steps(1, end) forwards; }
+.sp-fold { fill: #9aa7b4; }
+.sp-lines { stroke: #fff; stroke-width: 4; stroke-linecap: round; fill: none; }
+.sp-tick { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.sp-lines, .sp-tick { transform-box: fill-box; transform-origin: center; }
+.sp-body { animation: sp-recolor 4.7s steps(1, end) forwards, sp-break-body 0.6s ease-in 1.25s forwards; }
+.sp-lines { animation: sp-break-lines 0.6s ease-in 1.25s forwards; }
+.sp-tick { animation: sp-break-tick 0.6s ease-in 1.25s forwards; }
 
-@keyframes splash-pop { from { opacity: 0; transform: scale(0.5) rotate(-10deg); } to { opacity: 1; transform: none; } }
-@keyframes splash-draw { to { stroke-dashoffset: 0; } }
-@keyframes splash-wipe { to { clip-path: inset(0 0 0 0); } }
-@keyframes splash-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.sp-speed { left: 205px; width: 3px; height: 38px; border-radius: 2px; background: var(--brand); opacity: 0; transform: rotate(25deg); }
+.sp-speed.s1 { top: 6px; animation: sp-streak 0.5s ease-out 0.2s forwards; }
+.sp-speed.s2 { left: 222px; top: 26px; height: 26px; animation: sp-streak 0.5s ease-out 0.3s forwards; }
+
+/* blobs */
+.sp-blob { left: 163px; top: 85px; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); opacity: 0; }
+.sp-blob.b1 { --x: -90px; --y: -40px; animation: sp-swirl 0.9s cubic-bezier(0.6, 0, 0.3, 1) 1.35s forwards; }
+.sp-blob.b2 { --x: 80px; --y: -50px; animation: sp-swirl 0.9s cubic-bezier(0.6, 0, 0.3, 1) 1.45s forwards; }
+.sp-blob.b3 { --x: 10px; --y: 70px; animation: sp-swirl 0.9s cubic-bezier(0.6, 0, 0.3, 1) 1.55s forwards; }
+
+/* swoosh */
+.sp-swoosh { left: 0; top: 150px; width: 340px; height: 70px; overflow: visible; }
+.sp-swoosh path { fill: var(--accent); }
+.sp-swoosh { clip-path: inset(0 100% 0 0); animation: sp-wipe 0.55s cubic-bezier(0.6, 0, 0.2, 1) 2.0s forwards; }
+
+/* letters */
+.sp-word { left: 0; right: 0; top: 90px; margin: 0; display: flex; justify-content: center; font-size: 3.4rem; line-height: 1; font-weight: 800; font-style: italic; letter-spacing: -0.01em; color: #fff; }
+.sp-word span { display: inline-block; opacity: 0; transform: translateY(40px); animation: sp-rise 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) forwards; }
+.sp-word .gold { color: var(--accent); }
+
+.sp-tag { left: -60px; right: -60px; white-space: nowrap; top: 232px; margin: 0; text-align: center; font-size: 0.72rem; letter-spacing: 0.28em; text-transform: uppercase; color: #c3ccd5; opacity: 0; animation: sp-fade 0.6s ease 3.65s forwards; }
+
+@keyframes sp-bg { 0% { background: #eff1f3; } 27% { background: var(--brand); } }
+@keyframes sp-recolor { 0% { fill: var(--brand); } 27% { fill: #fff; } }
+@keyframes sp-recolor-fold { 0% { fill: var(--brand-dark); } 27% { fill: #9aa7b4; } }
+@keyframes sp-drop {
+  0% { opacity: 1; transform: translate(70px, -230px) rotate(-28deg); }
+  55% { opacity: 1; transform: translate(0, 12px) rotate(4deg); }
+  72% { opacity: 1; transform: translate(0, -14px) rotate(-2deg); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes sp-streak { 0% { opacity: 0.9; transform: translateY(-30px) rotate(25deg); } 100% { opacity: 0; transform: translateY(40px) rotate(25deg); } }
+@keyframes sp-break-body { to { transform: translate(-60px, 50px) rotate(-40deg) scale(0.4); opacity: 0; } }
+@keyframes sp-break-lines { to { transform: translate(10px, -70px) rotate(30deg) scale(0.5); opacity: 0; } }
+@keyframes sp-break-tick { to { transform: translate(70px, 20px) rotate(50deg) scale(0.4); opacity: 0; } }
+@keyframes sp-swirl {
+  0% { opacity: 1; transform: translate(0, 0) scale(1.4); }
+  40% { opacity: 1; transform: translate(var(--x), var(--y)) scale(1.8); }
+  100% { opacity: 0; transform: translate(-150px, 90px) scale(0.5); }
+}
+@keyframes sp-wipe { to { clip-path: inset(-10px -10px -10px -10px); } }
+@keyframes sp-rise { 0% { opacity: 0; transform: translateY(40px); } 100% { opacity: 1; transform: none; } }
+@keyframes sp-fade { to { opacity: 1; } }
+
+@media (max-width: 420px) { .sp-word { font-size: 2.8rem; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash *, .splash::after { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+  .splash, .splash * { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+  .splash { background: var(--brand); }
 }
 @media print { .splash { display: none; } }
