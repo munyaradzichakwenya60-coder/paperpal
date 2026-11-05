@@ -1,3 +1,4 @@
+import { LogoMark } from "../components/LogoMark";
 /**
  * /app/profile-setup
  *
@@ -43,7 +44,7 @@ export function ProfileSetupPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-brand">PaperPal</h1>
+        <h1 className="auth-brand"><LogoMark />PaperPal</h1>
         <p className="auth-sub">Almost there — tell us about yourself</p>
 
         <form className="auth-form" onSubmit={handleSubmit} noValidate>

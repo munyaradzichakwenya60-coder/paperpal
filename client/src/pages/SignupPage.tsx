@@ -1,3 +1,4 @@
+import { LogoMark } from "../components/LogoMark";
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -63,7 +64,7 @@ export function SignupPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1 className="auth-brand">PaperPal</h1>
+          <h1 className="auth-brand"><LogoMark />PaperPal</h1>
           <p className="auth-sub" style={{ textAlign: "center" }}>
             ✓ Account created. Taking you in…
           </p>
@@ -75,7 +76,7 @@ export function SignupPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1 className="auth-brand">PaperPal</h1>
+        <h1 className="auth-brand"><LogoMark />PaperPal</h1>
         <p className="auth-sub">Create your account</p>
 
         <button

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { generatePaper, getHealth, getSyllabus } from "./api";
 import { ControlPanel } from "./components/ControlPanel";
+import { LogoMark } from "./components/LogoMark";
 import { PaperSheet } from "./components/PaperSheet";
 import { ProfileModal } from "./components/ProfileModal";
 import { useAuth } from "./context/AuthContext";
@@ -84,7 +85,7 @@ export default function App() {
         />
       ) : (
         <div className="panel">
-          <h1 className="brand">PaperPal</h1>
+          <h1 className="brand"><LogoMark />PaperPal</h1>
           {!error && <p className="tagline">Loading…</p>}
         </div>
       )}

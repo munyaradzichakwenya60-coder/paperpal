@@ -1,3 +1,4 @@
+import { LogoMark } from "./LogoMark";
 import { useState } from "react";
 import type { Difficulty, GenerateRequest, Level, PaperType, Profile, Syllabus } from "../types";
 
@@ -108,7 +109,7 @@ export function ControlPanel({ syllabus, loading, onGenerate, profile, onEditPro
 
   return (
     <form className="panel" onSubmit={handleSubmit}>
-      <h1 className="brand">PaperPal</h1>
+      <h1 className="brand"><LogoMark />PaperPal</h1>
       <p className="tagline">Build a syllabus-aligned test and its marking scheme.</p>
 
       {/* Profile chip */}
