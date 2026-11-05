@@ -885,31 +885,30 @@ input[aria-invalid="true"] {
 /* ── Auth pages ──────────────────────────────────────────────────────────────── */
 
 .auth-page {
-  background-image: radial-gradient(circle at 15% 10%, #d9e1e8 0, transparent 45%), radial-gradient(circle at 90% 90%, #f1e6c2 0, transparent 40%);
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--desk);
+  background:
+    radial-gradient(circle at 12% 8%, #dfe6ec 0, transparent 42%),
+    radial-gradient(circle at 92% 94%, #f3ead0 0, transparent 38%),
+    var(--desk);
   padding: 24px 16px;
 }
 
 .auth-card {
-  box-shadow: 0 10px 30px rgba(11, 52, 82, 0.12);
   width: 100%;
-  max-width: 420px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-top: 4px solid var(--brand);
-  border-radius: 12px;
-  padding: 40px 36px;
+  max-width: 400px;
+  background: transparent;
+  border: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
 
 .auth-brand {
-  margin: 0 auto;
+  margin: 0 auto 4px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -947,7 +946,7 @@ input[aria-invalid="true"] {
 
 .auth-field input,
 .auth-field select {
-  background: var(--field);
+  background: #ffffff;
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 7px;
