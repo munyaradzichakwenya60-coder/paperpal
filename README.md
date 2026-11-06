@@ -2,79 +2,102 @@
 
 PaperPal helps Zimbabwean secondary school teachers generate ZIMSEC-style test papers and full marking schemes in minutes. A teacher picks the level, subject, topics, paper type, difficulty, marks and time, and PaperPal writes the paper and the marking scheme, which the teacher reviews and prints.
 
+**Live app:** https://paperpal-alpha.vercel.app  
+**Code:** https://github.com/munyaradzichakwenya60-coder/paperpal
+
 This is the capstone project for the Uncommon.org software development track. The approved proposal is "Capstone Proposal – Munyaradzi – PaperPal".
+
+## Screenshots
+
+Taken from the running app. The generated paper shown here is a sample paper served by a stubbed API so the screens can be captured without spending AI quota; the layout, cover page, instructions and diagram rendering are the real app.
+
+| | |
+|---|---|
+| ![Splash](docs/screenshots/splash3.png) | ![Login](docs/screenshots/login.png) |
+| ![Paper builder](docs/screenshots/app-form.png) | ![Generated paper](docs/screenshots/app-paper.png) |
+| ![Marking scheme](docs/screenshots/app-scheme.png) | ![Mobile](docs/screenshots/mobile-form.png) |
 
 ## Features
 
-- Paper builder for O-Level and A-Level subjects, with topic lists per subject
-- AI generation of a paper and marking scheme through the Gemini API, checked by strict validation and retried when a check fails
-- School profile (school name, teacher name, role) that is printed on the paper's cover
-- Question paper and marking scheme views, and print or save as PDF from the browser
-- Mock mode that returns sample papers when no API key is set
-- Mobile-friendly layout
-- Unit tests for validation, retry behaviour, input checking and rate limiting
-
-Planned: sign up and login, saving papers to a question bank, per-question regenerate and editing, Word export, and subject-specific paper formats (Paper 1 and Paper 2 styles).
+- Sign up and login with email and password, or Google (Supabase Auth)
+- Paper builder for O-Level and A-Level, 20 subjects, with syllabus topic lists per subject
+- Paper types: structured, multiple choice, mixed, and sectioned (ZIMSEC 4004/2 style, 100 marks)
+- Difficulty (easier, balanced, harder), total marks and time
+- AI generation of a paper and full marking scheme (M, A and B marks, AO1 to AO3), checked by strict validation and retried or repaired when a check fails
+- 12 diagram types drawn by the app from AI descriptions (sets, triangles, number lines, grids, bar charts, circles, tables, annuli, inequalities, solids, bearings, function graphs)
+- School profile (school, teacher, role) printed on the paper cover and saved to the teacher's account
+- Papers saved to the teacher's account; history of the last 50
+- Question paper and marking scheme views, print or save as PDF
+- Mock mode with sample papers when no AI key is set
+- Mobile-friendly layout; ZIMSEC-style navy, grey and gold branding with an animated splash
+- 30 automated tests (validation, retry and repair, input checks, rate limiting, API)
 
 ## Tech stack
 
-- Frontend: React 18, TypeScript, Vite
-- Backend: Node.js, Express, TypeScript, Zod for validation
-- AI: Gemini API (`generateContent`), called only from the server
+- Frontend: React 18, TypeScript, Vite, React Router
+- Backend: Node.js 20+, Express, TypeScript, Zod
+- Database and auth: Supabase (Postgres with row level security, Auth)
+- AI: Google Gemini API (primary), OpenRouter (backup), called only from the server
 - Hosting: Vercel (static client and one serverless function in `api/`)
 - Tests: Node's built-in test runner
 
 ## Setup
 
-Requires Node.js 20 or newer.
+Requires Node.js 20 or newer and a Supabase project.
 
 ```bash
 npm install
 cp server/.env.example server/.env
 ```
 
-Edit `server/.env` and set `GEMINI_API_KEY`. Never commit this file. Without a key the app runs in mock mode and returns sample text.
+1. In Supabase, run `supabase/migrations/001_init.sql` (tables `profiles` and `papers`, owner-only policies, signup trigger). Enable Email and Google providers under Authentication.
+2. Edit `server/.env`: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`. Optional: `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `AI_PROVIDER` (`gemini`, `openrouter` or `mock`), `AI_TIME_BUDGET_MS`.
+3. For the client, create `client/.env` with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (the public anon key only).
+
+Never commit `.env` files. Without any AI key the app runs in mock mode and returns sample papers.
 
 ## Run
 
 ```bash
-npm run dev         # API on :3001 and the client on :5173, with the client proxying /api
-npm test            # server unit tests
+npm run dev         # API on :3001 and the client on :5173, client proxies /api
+npm test            # server unit tests (30)
 npm run typecheck   # server and client
 npm run build       # production build
-npm start           # serve the API and the built client from one process
+npm start           # serve the API and built client from one process
 ```
 
 Open http://localhost:5173 while developing.
 
 ## Deployment (Vercel)
 
-1. Import the GitHub repo in Vercel. `vercel.json` already sets the build, output folder, routes and security headers.
-2. In Project Settings, Environment Variables, add `GEMINI_API_KEY` (and `GEMINI_MODEL` if you do not want the default).
-3. Deploy. Check `/api/health`: it reports `"provider":"gemini"` when the key is picked up.
+1. Import the GitHub repo in Vercel. `vercel.json` sets the build, output folder, routes and security headers.
+2. Add the environment variables above (server keys as normal variables; `VITE_SUPABASE_*` so the client build can read them).
+3. Deploy. `/api/health` reports the active AI provider.
 
-Generating a paper can take 10 to 40 seconds, so the function is configured with a 60-second limit. Your Vercel plan must allow that duration.
+Generating a paper can take 10 to 60 seconds, so the function has a 300 second limit and the AI loop stops at a 270 second budget.
 
 ## AI integration
 
-- **API:** Gemini `generateContent`, with JSON output requested. The model name is set with `GEMINI_MODEL` (default `gemini-2.5-flash`).
-- **What it does:** takes the teacher's settings and writes a complete paper and a marking scheme as JSON.
-- **Safeguards:** the response is parsed and checked with Zod. The server also checks that the question marks add up to the requested total, that each marking scheme adds up to its question's marks, and that multiple-choice questions have four options. If a check fails, the problems are sent back to the model and it tries again, up to three attempts within a 55-second budget. Only temporary AI errors are retried; a rejected API key fails immediately. After that the teacher sees a clear error.
-- **Input checks:** the subject and topics a teacher chooses must exist in `server/src/syllabus.ts`, so free text never reaches the prompt.
-- **Keys:** the API key stays on the server and is never sent to the browser.
-- **Abuse protection:** the generate endpoint is limited to 30 requests per IP every 10 minutes. This is a stopgap until accounts and per-user limits are added.
-- **Limitations:** the model can make mistakes in facts, calculations and marks, and it does not have the official ZIMSEC syllabus or past papers. The topic lists in `server/src/syllabus.ts` must be checked against the current syllabus. The prompt is written mainly for Mathematics-style papers, so papers for language and essay subjects need subject-specific formats. Teachers must review every paper and marking scheme before use.
+See [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md) for the full description and [docs/RESPONSIBLE_AI.md](docs/RESPONSIBLE_AI.md) for the ethics statement. In short:
+
+- **APIs:** Google Gemini `generateContent` (`gemini-2.5-flash`, then lighter `gemini-2.5-flash-lite` when it is busy), with OpenRouter as a backup when Gemini quota runs out.
+- **What it does:** turns the teacher's settings into a complete paper and marking scheme as structured JSON.
+- **Safeguards:** schema check, mark totals, marking scheme sums, four options per multiple-choice question, diagram checks, automatic repair of small mark slips, and retries that feed the problems back to the model.
+- **Limitations:** the model can be wrong, has no official ZIMSEC syllabus or past papers, and every paper must be reviewed by the teacher.
 
 ## Data and privacy
 
-- No student names or personal details are needed to generate a paper.
-- The school profile is stored in the browser's local storage on the teacher's own device. The server does not store it.
-- Generated papers are not saved on the server.
+- No student names or personal details are needed or collected.
+- Only the chosen subject, topics and settings are sent to the AI provider, never the teacher's name, school or email.
+- Teacher accounts, school profile and generated papers are stored in Supabase, protected by row level security so each teacher can only read their own rows.
+- API keys and the Supabase service role key stay on the server.
 
 ## Project structure
 
 ```
-api/      Vercel serverless entry point (re-exports the shared Express app)
-client/   React app (paper builder, profile and paper view)
-server/   Express app, prompt, Gemini client, validation, rate limiting, tests
+api/        Vercel serverless entry point (re-exports the shared Express app)
+client/     React app (splash, auth, builder, paper and marking scheme views)
+server/     Express app, prompt, AI providers, validation, diagrams, rate limiting, tests
+supabase/   Database migration
+docs/       AI integration description, responsible AI statement, screenshots
 ```
