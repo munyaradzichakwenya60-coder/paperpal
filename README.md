@@ -78,7 +78,7 @@ Generating a paper can take 10 to 60 seconds, so the function has a 300 second l
 
 ## AI integration
 
-See [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md) for the full description and [docs/RESPONSIBLE_AI.md](docs/RESPONSIBLE_AI.md) for the ethics statement. In short:
+See [docs/AI_INTEGRATION.md](docs/AI_INTEGRATION.md) for the full description, [docs/RESPONSIBLE_AI.md](docs/RESPONSIBLE_AI.md) for the ethics statement and [docs/PROMPTS.md](docs/PROMPTS.md) for the prompts. In short:
 
 - **APIs:** Google Gemini `generateContent` (`gemini-2.5-flash`, then lighter `gemini-2.5-flash-lite` when it is busy), with OpenRouter as a backup when Gemini quota runs out.
 - **What it does:** turns the teacher's settings into a complete paper and marking scheme as structured JSON.
